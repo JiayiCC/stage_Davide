@@ -1,0 +1,135 @@
+Dimension 3
+Pb_hydraulique_turbulent pb 
+
+domaine dom 
+
+Mailler dom
+{
+	Pave Entree 
+	{
+	  Origine 0. 0. 0.
+
+	  Nombre_de_Noeuds 4 201 4
+	  Longueurs 1.0 1.0 1.0
+	  Facteurs 1 1.03 1 
+	}
+	{
+	  Bord periox X = 0.    0. <= Y <= 1.0  0. <= Z <= 1      
+	  Bord sym   Y = 1.0   0. <= X <= 1.0  0. <= Z <= 1 
+	  Bord wall    Y = 0.    0. <= X <= 1.0  0. <= Z <= 1 
+	  Bord periox X = 1.0   0. <= Y <= 1.0  0. <= Z <= 1 
+	  Bord perioz Z = 0.    0. <= X <= 1.0  0. <= Y <= 1 
+	  Bord perioz Z = 1.0   0. <= X <= 1.0  0. <= Y <= 1
+	}
+} 
+VDF dis
+
+Schema_Euler_implicite sch_impl
+Lire sch_impl
+{
+	nb_pas_dt_max 10
+	tinit 0
+	dt_impr 1
+	facsec 100
+	facsec_max 100
+	solveur implicite { solveur gmres { diag nb_it_max 3 seuil 1e-10 impr } }
+	seuil_statio 1e-5
+}
+
+Schema_Euler_explicite sch_expl
+Lire sch_expl
+{
+	tinit 0
+	dt_impr 1e+6
+	facsec 1
+	seuil_statio 1e-5
+	# nb_pas_dt_max 1 #
+}
+
+
+Associer pb dom
+Associer pb sch_impl
+
+Discretiser pb dis
+
+Lire pb
+{
+
+   fluide_incompressible {
+    	mu champ_uniforme 1 8.00000e-06
+    	rho champ_uniforme 1 1
+   }
+   
+   	Navier_Stokes_turbulent
+	{
+		Solveur_pression	PETSC Cholesky { }
+		Convection		{ quick }
+		Diffusion		{ tenseur_Reynolds_externe } # mot-cle pour la source -2kbij dans l'equation RANS #
+		Conditions_initiales	{ vitesse champ_fonc_xyz dom 3 3/2*y*(2-y) 0 0 } # champ_fonc_xyz dom 3 3/2*y*(2-y) 0 0 #
+		Conditions_limites	{
+					periox	periodique
+					perioz	periodique
+					wall	paroi_fixe 
+					# wall	symetrie # 
+					sym	symetrie 
+					}
+		Modele_turbulence k_epsilon
+					{
+					transport_k_epsilon
+					{
+						# equation_non_resolue (t>0) # # I do not think that it is non_resolue #
+						with_nu 		yes
+						convection		{ quick } 
+						diffusion		{  } 
+						conditions_initiales 	{ k_eps champ_fonc_xyz dom 2 0.1 0.1 }
+
+						conditions_limites	{
+									periox	periodique
+									perioz	periodique
+									wall	paroi_fixe
+									sym	symetrie 
+									}
+						sources			{ source_transport_k_eps { C1_eps 1.44 C2_eps 1.92 } } 
+						}
+					Modele_Fonc_Bas_Reynolds Launder_Sharma { } 
+					k_min 1e-40	
+					turbulence_paroi negligeable 
+					}
+		Sources			{ canal_perio { bord periox debit_impose 1 } ,  
+						  canal_perio { bord perioz debit_impose 0 } , 
+						  tenseur_Reynolds_externe {
+						   				nom_fichier Cas8
+						  } }
+	}
+	Postraitement
+	{
+		definition_champs	{
+					vitesse_som interpolation { localisation som source refchamp { pb_champ pb vitesse } }
+
+					}
+
+		sondes			{
+					vitesse vitesse_som	periode 1 segmentpoints 95 0.0 5.79146e-05 0.0 0.0 0.000214103 0.0 0.0 0.000508897 0.0 0.0 0.000982588 0.0 0.0 0.00167542 0.0 0.0 0.00262757 0.0 0.0 0.00387914 0.0 0.0 0.00541225 0.0 0.0 0.00722645 0.0 0.0 0.00932125 0.0 0.0 0.011696 0.0 0.0 0.0143501 0.0 0.0 0.0172828 0.0 0.0 0.0204933 0.0 0.0 0.0239805 0.0 0.0 0.0277436 0.0 0.0 0.0317815 0.0 0.0 0.0360931 0.0 0.0 0.0406771 0.0 0.0 0.0455322 0.0 0.0 0.050657 0.0 0.0 0.0560502 0.0 0.0 0.0617102 0.0 0.0 0.0676353 0.0 0.0 0.073824 0.0 0.0 0.0802744 0.0 0.0 0.0869848 0.0 0.0 0.0939532 0.0 0.0 0.101178 0.0 0.0 0.108656 0.0 0.0 0.116387 0.0 0.0 0.124367 0.0 0.0 0.132595 0.0 0.0 0.141067 0.0 0.0 0.149783 0.0 0.0 0.158739 0.0 0.0 0.167932 0.0 0.0 0.177361 0.0 0.0 0.187023 0.0 0.0 0.196914 0.0 0.0 0.207032 0.0 0.0 0.217374 0.0 0.0 0.227937 0.0 0.0 0.238719 0.0 0.0 0.249715 0.0 0.0 0.260924 0.0 0.0 0.272342 0.0 0.0 0.283965 0.0 0.0 0.295791 0.0 0.0 0.307816 0.0 0.0 0.320036 0.0 0.0 0.332448 0.0 0.0 0.34505 0.0 0.0 0.357836 0.0 0.0 0.370804 0.0 0.0 0.383949 0.0 0.0 0.397269 0.0 0.0 0.410759 0.0 0.0 0.424416 0.0 0.0 0.438235 0.0 0.0 0.452213 0.0 0.0 0.466346 0.0 0.0 0.48063 0.0 0.0 0.49506 0.0 0.0 0.509634 0.0 0.0 0.524345 0.0 0.0 0.539192 0.0 0.0 0.554168 0.0 0.0 0.569271 0.0 0.0 0.584495 0.0 0.0 0.599837 0.0 0.0 0.615291 0.0 0.0 0.630855 0.0 0.0 0.646523 0.0 0.0 0.66229 0.0 0.0 0.678153 0.0 0.0 0.694108 0.0 0.0 0.710148 0.0 0.0 0.726271 0.0 0.0 0.742471 0.0 0.0 0.758743 0.0 0.0 0.775084 0.0 0.0 0.791488 0.0 0.0 0.807952 0.0 0.0 0.824469 0.0 0.0 0.841037 0.0 0.0 0.857649 0.0 0.0 0.874301 0.0 0.0 0.890989 0.0 0.0 0.907708 0.0 0.0 0.924453 0.0 0.0 0.941219 0.0 0.0 0.958002 0.0 0.0 0.974796 0.0 0.0 0.991598 0.0
+
+					}  
+			champs dt_post 1e+6
+					
+					{
+					viscosite_turbulente elem
+					y_plus elem
+					vitesse elem
+					k elem
+					eps elem
+					}
+	}
+	sauvegarde single_hdf Cas.sauv 
+}
+
+EcritureLectureSpecial 0
+
+
+Resoudre pb
+
+# System "$exec Reprise 1>Reprise.out 2>Reprise.err" #
+
+Fin
