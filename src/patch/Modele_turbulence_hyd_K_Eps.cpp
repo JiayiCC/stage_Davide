@@ -196,14 +196,14 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
       const DoubleTab& g1 = get_source_tenseur_de_Reynolds_NN( ).get_g1( );
       for (int i=0; i<n; i++)
         {
-          if (LeCmu_champ.non_nul() && !is_initialized)
+          if (LeCmu_champ.non_nul() && is_initialized)
             {
-              Cerr<< " On utilise Cmu du champ DNS " << finl;
+              // Cerr<< " On utilise Cmu du champ DNS " << finl;
               Cmu_.valeurs()[i] = LeCmu_tab(i,0);
             }
           else
             {
-              Cerr<< " On utilise Cmu du réseau " << finl;
+              // Cerr<< " On utilise Cmu du réseau " << finl;
               Cmu_.valeurs()[i] = - g1( i );
             }
 //          Cmu[i] = LeCmu_tab(i,0);
