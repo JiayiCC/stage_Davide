@@ -1268,6 +1268,17 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
 
   // save predictions and g1 values
   g1_ = g1;
+
+  DoubleTab& bij_tab = modele_K_Eps_.valeur().get_bij();
+  for (int elem=0; elem<nelem_; elem++)
+    {
+      bij_tab(elem,0) = resu(elem,0,0);
+      bij_tab(elem,1) = resu(elem,0,1);
+      bij_tab(elem,2) = resu(elem,0,2);
+      bij_tab(elem,3) = resu(elem,1,1);
+      bij_tab(elem,4) = resu(elem,1,2);
+      bij_tab(elem,5) = resu(elem,2,2);
+    }
   bij_ = resu;
 
   return resu;

@@ -96,6 +96,40 @@ int Modele_turbulence_hyd_K_Eps::lire_motcle_non_standard(const Motcle& mot, Ent
     return Mod_turb_hyd_RANS::lire_motcle_non_standard(mot,is);
 }
 
+/*! @brief Discretise le modele de turbulence.
+ *
+ */
+void Modele_turbulence_hyd_K_Eps::discretiser()
+{
+
+  Mod_turb_hyd_RANS::discretiser();
+
+  const Discretisation_base& dis=ref_cast(Discretisation_base, mon_equation->discretisation());
+  dis.discretiser_champ("champ_elem",mon_equation->domaine_dis().valeur(),"Cmu","",1,mon_equation->schema_temps().temps_courant(),Cmu_);
+  champs_compris_.ajoute_champ(Cmu_);
+
+  Noms noms(6);
+  Noms unit(6);
+  noms[0]="bij_00";
+  noms[1]="bij_01";
+  noms[2]="bij_02";
+  noms[3]="bij_11";
+  noms[4]="bij_12";
+  noms[5]="bij_22";
+
+  unit[0]="";
+  unit[1]="";
+  unit[2]="";
+  unit[3]="";
+  unit[4]="";
+  unit[5]="";
+
+  dis.discretiser_champ("champ_elem",mon_equation->domaine_dis().valeur(),multi_scalaire,noms,unit,6,mon_equation->schema_temps().temps_courant(),bij_);
+  bij_.valeur().nommer("bij");
+  champs_compris_.ajoute_champ(bij_);
+
+}
+
 /*! @brief Calcule la viscosite turbulente au temps demande.
  *
  * @param (double temps) le temps auquel il faut calculer la viscosite
@@ -135,8 +169,6 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
   const DoubleTab& tab_K_Eps = chK_Eps.valeurs();
   DoubleTab& visco_turb =  la_viscosite_turbulente.valeurs();
 
-  DoubleTab Cmu(tab_K_Eps.dimension_tot(0)) ;
-
 //  K_Eps(i,0) = K au noeud i
 //  K_Eps(i,1) = Epsilon au noeud i
 //  int n = tab_K_Eps.dimension(0);
@@ -160,18 +192,19 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
 
   if (tenseur_de_Reynolds_externe_)
     {
-      Cerr<< " On utilise un Cmu non constant donne par le reseau de neurones (qui supplante eventuellement le Cmu non constant du modele fonctionnel) "<< finl;
+      // Cerr<< " On utilise un Cmu non constant donne par le reseau de neurones (qui supplante eventuellement le Cmu non constant du modele fonctionnel) "<< finl;
       const DoubleTab& g1 = get_source_tenseur_de_Reynolds_NN( ).get_g1( );
       for (int i=0; i<n; i++)
         {
           if (LeCmu_champ.non_nul() && !is_initialized)
             {
-              Cmu[i] = LeCmu_tab(i,0);
+              Cerr<< " On utilise Cmu du champ DNS " << finl;
+              Cmu_.valeurs()[i] = LeCmu_tab(i,0);
             }
           else
             {
-              Cmu[i] = - g1( i );
-              cerr << " Cmu(elem) da g1 : "<< Cmu[i] << endl;
+              Cerr<< " On utilise Cmu du réseau " << finl;
+              Cmu_.valeurs()[i] = - g1( i );
             }
 //          Cmu[i] = LeCmu_tab(i,0);
 //          Cmu[i] = fabs( g1( i ) );
@@ -206,7 +239,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
         {
 //          Cerr<< " On utilise un Cmu non constant "<< finl;
           const DoubleTab& vitesse = mon_equation->inconnue().valeurs();
-          mon_modele_fonc.Calcul_Cmu(Cmu, le_dom_dis, le_dom_Cl_dis,
+          mon_modele_fonc.Calcul_Cmu(Cmu_.valeurs(), le_dom_dis, le_dom_Cl_dis,
                                      vitesse, tab_K_Eps, LeEPS_MIN);
 
           /*Paroi*/
@@ -218,7 +251,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
               visco_tab = tab_visco(0,0);
               const int idt =  mon_equation->schema_temps().nb_pas_dt();
               const DoubleTab& tab_paroi = loi_paroi().valeur().Cisaillement_paroi();
-              mon_modele_fonc.Calcul_Cmu_Paroi(Cmu, le_dom_dis, le_dom_Cl_dis,visco_tab, visco_turb, tab_paroi, idt,
+              mon_modele_fonc.Calcul_Cmu_Paroi(Cmu_.valeurs(), le_dom_dis, le_dom_Cl_dis,visco_tab, visco_turb, tab_paroi, idt,
                                                vitesse, tab_K_Eps, LeEPS_MIN);
             }
         }
@@ -268,7 +301,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
             {
               if (tenseur_de_Reynolds_externe_)
                 {
-                  visco_turb_K_eps[i] = Cmu[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
+                  visco_turb_K_eps[i] = Cmu_.valeurs()[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
                 }
               else if (is_modele_fonc)
                 {
@@ -276,7 +309,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
                   if (is_Cmu_constant)
                     visco_turb_K_eps[i] = Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
                   else
-                    visco_turb_K_eps[i] = Fmu(i)*Cmu(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
+                    visco_turb_K_eps[i] = Fmu(i)*Cmu_.valeurs()(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
                 }
               else
                 visco_turb_K_eps[i] = LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
@@ -303,7 +336,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
               if (tenseur_de_Reynolds_externe_)
                 {
                   //visco_turb[i] = LeCmu_tab(i,0)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
-                  visco_turb[i] =Cmu[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
+                  visco_turb[i] =Cmu_.valeurs()[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
 
                 }
               else if (is_modele_fonc)
@@ -313,7 +346,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
                     visco_turb[i] =Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i)+1e-20);
                   else
                     {
-                      visco_turb[i] =Fmu(i)*Cmu(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i)+1e-20);
+                      visco_turb[i] =Fmu(i)*Cmu_.valeurs()(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i)+1e-20);
                     }
                 }
               else

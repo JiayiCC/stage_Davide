@@ -51,6 +51,7 @@ public:
   void mettre_a_jour(double ) override;
   virtual inline Champ_Inc& K_Eps();
   virtual inline const Champ_Inc& K_Eps() const;
+  void discretiser() override;
 
   inline int nombre_d_equations() const override;
   inline Transport_K_Eps_base& eqn_transp_K_Eps() override;
@@ -66,6 +67,8 @@ public:
   {
     return LeCmu_champ.non_nul() && !is_initialized;
   }
+//  inline void set_bij(const DoubleTab& bij);
+  inline DoubleTab& get_bij();
 
 protected:
   Transport_K_Eps  eqn_transport_K_Eps;
@@ -73,8 +76,19 @@ protected:
 
   Champ_Don LeCmu_champ;
   DoubleTab LeCmu_tab;
+  Champ_Fonc Cmu_, bij_;
   int is_initialized = 0;
 };
+
+//inline void Modele_turbulence_hyd_K_Eps::set_bij(const DoubleTab& bij)
+//{
+//  bij_.valeurs() = bij;
+//}
+
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_bij()
+{
+  return bij_.valeurs();
+}
 
 
 // Description:
