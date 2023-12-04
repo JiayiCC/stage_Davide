@@ -218,6 +218,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
       // pour avoir nu en incompressible et mu en QC
       // et non comme on a divise K et eps par rho (si on est en QC)
       // on veut toujours nu
+      Cerr<< " On calucule la viscosité turbulente avec un modele_fonc"<< finl;
       const Champ_Don ch_visco=ref_cast(Fluide_base,eqn_transp_K_Eps().milieu()).viscosite_cinematique();
       const Champ_Don& ch_visco_cin =ref_cast(Fluide_base,eqn_transp_K_Eps().milieu()).viscosite_cinematique();
       // const Champ_Don& ch_visco_cin_ou_dyn =((const Op_Diff_K_Eps&) eqn_transp_K_Eps().operateur(0)).diffusivite();
@@ -237,7 +238,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
       int is_Cmu_constant = mon_modele_fonc.Calcul_is_Cmu_constant();
       if (is_Cmu_constant==0)
         {
-//          Cerr<< " On utilise un Cmu non constant "<< finl;
+          Cerr<< " On utilise un Cmu non constant "<< finl;
           const DoubleTab& vitesse = mon_equation->inconnue().valeurs();
           mon_modele_fonc.Calcul_Cmu(Cmu_.valeurs(), le_dom_dis, le_dom_Cl_dis,
                                      vitesse, tab_K_Eps, LeEPS_MIN);
@@ -255,8 +256,8 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
                                                vitesse, tab_K_Eps, LeEPS_MIN);
             }
         }
-//      else
-//        Cerr<< " On utilise un Cmu constant "<< finl;
+      else
+        Cerr<< " On utilise un Cmu constant "<< finl;
 
     }
 
@@ -307,6 +308,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
                 {
                   int is_Cmu_constant = mon_modele_fonc.Calcul_is_Cmu_constant();
                   if (is_Cmu_constant)
+
                     visco_turb_K_eps[i] = Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
                   else
                     visco_turb_K_eps[i] = Fmu(i)*Cmu_.valeurs()(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
@@ -343,7 +345,10 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
                 {
                   int is_Cmu_constant = mon_modele_fonc.Calcul_is_Cmu_constant();
                   if (is_Cmu_constant)
-                    visco_turb[i] =Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i)+1e-20);
+                    {
+                      //Cerr << " On calucule la viscosité turbulente avec le Cmu constant du modele_fonc"<< finl;
+                      visco_turb[i] =Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i)+1e-20);
+                    }
                   else
                     {
                       visco_turb[i] =Fmu(i)*Cmu_.valeurs()(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i)+1e-20);
