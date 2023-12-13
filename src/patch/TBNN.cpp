@@ -273,6 +273,13 @@ void TBNN::process_b()
 		_pb[5] = -(_g[0]+_g[2]);
 		//cerr << "Entrato dentro Cas9" << endl;
 	}
+	else if (_model_file.find("Cas10") != string::npos) {
+
+		_pb[0] = _g[0];
+		_pb[3] = _g[2];
+		_pb[5] = -(_g[0]+_g[2]);
+		//cerr << "Entrato dentro Cas10" << endl;
+	}
 	else
 		cerr << "Bad name of NN file .json (not 'Cas#')" << endl;
 
