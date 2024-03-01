@@ -266,6 +266,13 @@ void TBNN::process_b()
 		_pb[5] = -(_g[0]+_g[2]);
 		//cerr << "Entrato dentro Cas8" << endl;
 	}
+	else if (_model_file.find("Cas8LS") != string::npos) {
+
+		_pb[0] = _g[0];
+		_pb[3] = _g[2];
+		_pb[5] = -(_g[0]+_g[2]);
+		cerr << "Entrato dentro Cas8LS" << endl;
+	}
 	else if (_model_file.find("Cas9") != string::npos) {
 
 		_pb[0] = _g[0];
