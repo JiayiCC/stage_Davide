@@ -90,19 +90,41 @@ Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
       Cerr << "On attendait { pour commencer a lire les constantes de Tenseur_Reynolds_Externe" << finl;
       exit();
     }
-  Motcles les_mots(1);
+  Motcles les_mots(3);
   {
     les_mots[0] = "nom_fichier";
+    les_mots[1] = "canal_plan";
+    les_mots[2] = "canal_carre";
   }
   is >> motlu;
+  //Cerr << "The input stream is " << is << finl;
   while (motlu != accolade_fermee)
     {
       int rang=les_mots.search(motlu);
       switch(rang)
         {
-        case 0 :
+        case 0 : // "nom_fichier"
           {
             is >> nn_casename;
+            Cerr << "The read case name is " << nn_casename << finl;
+            readNN();
+            break;
+          }
+
+        case 1 : // "canal_plan"
+          {
+            tbnn->canal_plan(true);
+            Cerr << "Using neural network trained on plane channel flow" << finl;
+            //Cerr << "The value of is_canal_plan_ bool is: " << static_cast<unsigned int>(f) << finl; // Cast CANAL_PLAN_ to unsigned int
+            //Cerr << "The value of is_canal_carre_ bool is: " << static_cast<unsigned int>(tbnn->is_canal_carre_) << finl; // Cast CANAL_PLAN_ to unsigned int
+            break;
+          }
+        case 2 : // "canal_carre"
+          {
+            tbnn->canal_carre(true);
+            Cerr << "Using neural network trained on square duct flow" << finl;
+            //Cerr << "The value of is_canal_plan_ bool is: " << static_cast<unsigned int>(tbnn->is_canal_plan_) << finl; // Cast CANAL_PLAN_ to unsigned int
+            //Cerr << "The value of is_canal_carre_ bool is: " << static_cast<unsigned int>(tbnn->is_canal_carre_) << finl; // Cast CANAL_PLAN_ to unsigned int
             break;
           }
         default :
@@ -114,8 +136,6 @@ Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
 
       is >> motlu;
     }
-
-  readNN();
 
   return is;
 
@@ -438,6 +458,7 @@ void Tenseur_Reynolds_Externe_VDF_Face::completer()
 
 //void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
 //{
+// TODO : retrieve lambda and T
 //  const Domaine_VDF& domaine_VDF = le_dom_VDF.valeur();
 //  const Domaine_Cl_VDF& domaine_Cl_VDF = le_dom_Cl_VDF.valeur();
 //
@@ -931,14 +952,23 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_NL_TBNN(DoubleTab& resu
   ref_cast_non_const(Champ_Face_VDF,vitesse).calcul_duidxj( vitesse.valeurs(),gij,domaine_Cl_VDF );
 
 
-
+  if (tbnn->is_canal_plan_)
+    Cerr << " Testing PCF TRE_VDF_Face.cpp line 956 " << finl;
   for (int elem=0; elem<nelem_; elem++)
     {
       alpha = compute_alpha(K_eps(elem, 0), K_eps(elem,1), gij(elem,0,1,0) );
       resu_NL(elem,0,1) -= 0.5 * g1_(elem) * alpha;
       resu_NL(elem,1,0) -= 0.5 * g1_(elem) * alpha;
     }
-
+  if (tbnn->is_canal_carre_)
+    Cerr << " Testing SDF TRE_VDF_Face.cpp line 964 " << finl;
+  //TODO: calculate non linear tensor
+  for (int elem=0; elem<nelem_; elem++)
+    {
+      alpha = compute_alpha(K_eps(elem, 0), K_eps(elem,1), gij(elem,0,1,0) );
+      resu_NL(elem,0,1) -= 0.5 * g1_(elem) * alpha;
+      resu_NL(elem,1,0) -= 0.5 * g1_(elem) * alpha;
+    }
   return resu_NL;
 }
 
@@ -947,22 +977,22 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
   vector<double> b;
   double alpha, y_plus, Re_t;
   double y_maille_paroi =-1, y_elem;
-//  vector<vector<double>> T;
+  //  vector<vector<double>> T;
   DoubleTab g1(nelem_);
   const DoubleTab& K_eps = eqn_transport_K_Eps_->inconnue().valeurs();
   double u_t;
 
   double dudy_paroi ;
 
-//  std::vector<double> A = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/A_1000.dat");
-//  std::vector<double> C = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/C_1000.dat");
-//  std::vector<double> B0 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B0_1000.dat");
-//  std::vector<double> B1 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B1_1000.dat");
-//  std::vector<double> B2 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B2_1000.dat");
-//  std::vector<double> B3 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B3_1000.dat");
-//  std::vector<double> B4 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B4_1000.dat");
-//  std::vector<double> B5 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B5_1000.dat");
-//  std::vector<double> c_mu_DNS = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/Cas_1000/c_mu_DNS_1000.dat");
+  //  std::vector<double> A = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/A_1000.dat");
+  //  std::vector<double> C = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/C_1000.dat");
+  //  std::vector<double> B0 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B0_1000.dat");
+  //  std::vector<double> B1 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B1_1000.dat");
+  //  std::vector<double> B2 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B2_1000.dat");
+  //  std::vector<double> B3 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B3_1000.dat");
+  //  std::vector<double> B4 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B4_1000.dat");
+  //  std::vector<double> B5 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B5_1000.dat");
+  //  std::vector<double> c_mu_DNS = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/Cas_1000/c_mu_DNS_1000.dat");
 
 
 
@@ -1011,28 +1041,28 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
 
       int elem_paroi;
 
-//
-//      if (sub_type(Neumann_sortie_libre,la_cl.valeur()))
-//        {
-//
-//          for ( int num_face=ndeb; num_face<nfin; num_face++)
-//            {
-//              double vol = volumes_entrelaces(num_face)*porosite_surf(num_face);
-//              int ncomp = orientation(num_face);
-//              int elem1 = face_voisins(num_face,0);
-//
-//              if (elem1 != -1)
-//                resu(num_face)+= tt(elem1,ncomp)*vol;  //-=valeurs...
-//              else
-//                {
-//                  int elem2 = face_voisins(num_face,1);
-//                  resu(num_face)+= tt(elem2,ncomp)*vol;
-//                }
-//            }
-//
-//        }
-//      else if (sub_type(Symetrie,la_cl.valeur()))
-//        ;
+      //
+      //      if (sub_type(Neumann_sortie_libre,la_cl.valeur()))
+      //        {
+      //
+      //          for ( int num_face=ndeb; num_face<nfin; num_face++)
+      //            {
+      //              double vol = volumes_entrelaces(num_face)*porosite_surf(num_face);
+      //              int ncomp = orientation(num_face);
+      //              int elem1 = face_voisins(num_face,0);
+      //
+      //              if (elem1 != -1)
+      //                resu(num_face)+= tt(elem1,ncomp)*vol;  //-=valeurs...
+      //              else
+      //                {
+      //                  int elem2 = face_voisins(num_face,1);
+      //                  resu(num_face)+= tt(elem2,ncomp)*vol;
+      //                }
+      //            }
+      //
+      //        }
+      //      else if (sub_type(Symetrie,la_cl.valeur()))
+      //        ;
       if ( (sub_type(Dirichlet,la_cl.valeur()))   ||  (sub_type(Dirichlet_homogene,la_cl.valeur())))
         {
 
@@ -1055,12 +1085,12 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
               y_maille_paroi =le_dom_VDF->xp(elem_paroi, 1) ;
               //Cerr << " y_maille_paroi= "<< y_maille_paroi << finl; VERIFICATO
 
-//
-//              if (vitesse_sx + vitesse_dx > 0)
-//                {
-//                  dudy_max = 0.5 * (vitesse_sx + vitesse_dx) / y_maille_paroi;
-//                  Cerr << " dudy = "<< dudy_max << finl;
-//                }
+              //
+              //              if (vitesse_sx + vitesse_dx > 0)
+              //                {
+              //                  dudy_max = 0.5 * (vitesse_sx + vitesse_dx) / y_maille_paroi;
+              //                  Cerr << " dudy = "<< dudy_max << finl;
+              //                }
               dudy_paroi = gij(elem_paroi,0,1,0);
 
               //u_t = sqrt(fabs(nu* dudy_paroi)+1e-20);
@@ -1075,69 +1105,69 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
 
 
         }
-//
-//      else if (sub_type(Periodique,la_cl.valeur()))
-//        {
-//
-//          //double s_face;
-//          //ndeb = le_bord.num_premiere_face();
-//          //nfin = ndeb + le_bord.nb_faces();
-//
-//          for (int num_face=ndeb; num_face<nfin; num_face++)  //added this-5
-//            {
-//
-//              double vol = volumes_entrelaces(num_face)*porosite_surf(num_face); //changed
-//              int ncomp = orientation(num_face);
-//              double s_face = tt(face_voisins(num_face,1),ncomp); //changed this +5
-//
-//              for (int i =0; i<dimension ; i++)
-//                S_FACE[i](num_face,0) = tt(face_voisins(num_face,1),i);
-//
-//              resu(num_face) += s_face*vol;
-//            }
-//        }
+      //
+      //      else if (sub_type(Periodique,la_cl.valeur()))
+      //        {
+      //
+      //          //double s_face;
+      //          //ndeb = le_bord.num_premiere_face();
+      //          //nfin = ndeb + le_bord.nb_faces();
+      //
+      //          for (int num_face=ndeb; num_face<nfin; num_face++)  //added this-5
+      //            {
+      //
+      //              double vol = volumes_entrelaces(num_face)*porosite_surf(num_face); //changed
+      //              int ncomp = orientation(num_face);
+      //              double s_face = tt(face_voisins(num_face,1),ncomp); //changed this +5
+      //
+      //              for (int i =0; i<dimension ; i++)
+      //                S_FACE[i](num_face,0) = tt(face_voisins(num_face,1),i);
+      //
+      //              resu(num_face) += s_face*vol;
+      //            }
+      //        }
     }
 
-//
-//  // init of lambda and T arrays
-//  lambda.resize(5);
-//  T.resize(11);
-//  for (int i=0; i<11; i++)
-//    T[i].resize(6);
-//  T[0][0] = 1./6.;
-//  T[0][1] = 0.;
-//  T[0][2] = 0.;
-//  T[0][3] = 1./6.;
-//  T[0][4] = 0.;
-//  T[0][5] = -1./3.;
+  //
+  //  // init of lambda and T arrays
+  //  lambda.resize(5);
+  //  T.resize(11);
+  //  for (int i=0; i<11; i++)
+  //    T[i].resize(6);
+  //  T[0][0] = 1./6.;
+  //  T[0][1] = 0.;
+  //  T[0][2] = 0.;
+  //  T[0][3] = 1./6.;
+  //  T[0][4] = 0.;
+  //  T[0][5] = -1./3.;
 
 
   for (int elem=0; elem<nelem_; elem++)
     {
 
-//      lambda[0] = lambda_1_etoile_(elem);
-//      lambda[1] = lambda_2_etoile_(elem);
-//      lambda[2] = lambda_3_etoile_(elem);
-//      lambda[3] = lambda_4_etoile_(elem);
-//      lambda[4] = lambda_5_etoile_(elem);
-//      unsigned int k = 0;
-//      for (int i=0; i<Objet_U::dimension; i++)
-//        {
-//          for (int j=i; j<Objet_U::dimension; j++)
-//            {
-//              T[1][k] = T1_etoile_(elem,i,j);
-//              T[2][k] = T2_etoile_(elem,i,j);
-//              T[3][k] = T3_etoile_(elem,i,j);
-//              T[4][k] = T4_etoile_(elem,i,j);
-//              T[5][k] = T5_etoile_(elem,i,j);
-//              T[6][k] = T6_etoile_(elem,i,j);
-//              T[7][k] = T7_etoile_(elem,i,j);
-//              T[8][k] = T8_etoile_(elem,i,j);
-//              T[9][k] = T9_etoile_(elem,i,j);
-//              T[10][k] = T10_etoile_(elem,i,j);
-//              k++;
-//            }
-//        }
+      //      lambda[0] = lambda_1_etoile_(elem);
+      //      lambda[1] = lambda_2_etoile_(elem);
+      //      lambda[2] = lambda_3_etoile_(elem);
+      //      lambda[3] = lambda_4_etoile_(elem);
+      //      lambda[4] = lambda_5_etoile_(elem);
+      //      unsigned int k = 0;
+      //      for (int i=0; i<Objet_U::dimension; i++)
+      //        {
+      //          for (int j=i; j<Objet_U::dimension; j++)
+      //            {
+      //              T[1][k] = T1_etoile_(elem,i,j);
+      //              T[2][k] = T2_etoile_(elem,i,j);
+      //              T[3][k] = T3_etoile_(elem,i,j);
+      //              T[4][k] = T4_etoile_(elem,i,j);
+      //              T[5][k] = T5_etoile_(elem,i,j);
+      //              T[6][k] = T6_etoile_(elem,i,j);
+      //              T[7][k] = T7_etoile_(elem,i,j);
+      //              T[8][k] = T8_etoile_(elem,i,j);
+      //              T[9][k] = T9_etoile_(elem,i,j);
+      //              T[10][k] = T10_etoile_(elem,i,j);
+      //              k++;
+      //            }
+      //        }
 
       x_elem =le_dom_VDF->xp(elem, 0) ; // x=0
       y_elem =le_dom_VDF->xp(elem, 1) ; // y=1
@@ -1158,33 +1188,35 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
       //Cerr << "Re_t is: "<< Re_t << finl;
 
 
-//      //ALPHA IMPOSTO
-//      int line_inf = -1;
-//
-//      for (unsigned int i = 0; i < C.size(); i++)
-//        {
-//          if (y_elem < C[i])
-//            {
-//              line_inf = i;
-//              break;
-//            }
-//        }
-//
-//      // Altrimenti, imposta alpha_true al valore corrispondente da A.txt
-//      if (line_inf == 0)
-//        alpha = 0.5 * A[line_inf];
-//
-//      else if (line_inf == -1) // it means it is the highest cell
-//        alpha = A[C.size()-1];
-//
-//      else
-//        alpha = 0.5 * (A[line_inf-1] + A[line_inf]);
-//
-//      // Fai qualcosa con alpha_true...
-//      std::cout << "alpha_true è " << alpha << '\n';
+      //      //ALPHA IMPOSTO
+      //      int line_inf = -1;
+      //
+      //      for (unsigned int i = 0; i < C.size(); i++)
+      //        {
+      //          if (y_elem < C[i])
+      //            {
+      //              line_inf = i;
+      //              break;
+      //            }
+      //        }
+      //
+      //      // Altrimenti, imposta alpha_true al valore corrispondente da A.txt
+      //      if (line_inf == 0)
+      //        alpha = 0.5 * A[line_inf];
+      //
+      //      else if (line_inf == -1) // it means it is the highest cell
+      //        alpha = A[C.size()-1];
+      //
+      //      else
+      //        alpha = 0.5 * (A[line_inf-1] + A[line_inf]);
+      //
+      //      // Fai qualcosa con alpha_true...
+      //      std::cout << "alpha_true è " << alpha << '\n';
 
 
       // prediction by neural network
+      if (tbnn->is_canal_plan_)
+        Cerr << " Testing PCF TRE_VDF_Face.cpp line 1213 " << finl;
       b = tbnn->predict(alpha, y_plus, Re_t);
 
       //Cerr << "y_plus: "<< y_plus << ", b_12 =" << b[1]  << finl;
@@ -1201,70 +1233,87 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
       resu(elem,2,1) = b[4];
       resu(elem,2,2) = b[5];
 
+      g1(elem) = tbnn->get_g1(resu(elem,0,1), alpha);
 
-//      //here insert the injection of the DNS results of B
-//
-//      int line_inf = -1;
-//
-//      for (unsigned int i = 0; i < C.size(); i++)
-//        {
-//          if (y_elem < C[i])
-//            {
-//              line_inf = i;
-//              break;
-//            }
-//        }
-//
-//      // Altrimenti, imposta alpha_true al valore corrispondente da A.txt
-//      if (line_inf == 0)
-//        {
-//          alpha = 0.5 * A[line_inf];
-//          resu(elem,0,0) =  B0[line_inf];
-//          resu(elem,0,1) =  B1[line_inf];
-//          resu(elem,0,2) =  B2[line_inf];
-//          resu(elem,1,0) =  B1[line_inf];
-//          resu(elem,1,1) =  B3[line_inf];
-//          resu(elem,1,2) =  B4[line_inf];
-//          resu(elem,2,0) =  B2[line_inf];
-//          resu(elem,2,1) =  B4[line_inf];
-//          resu(elem,2,2) =  B5[line_inf];
-//        }
-//
-//      else if (line_inf == -1) // it means it is the highest cell
-//
-//        {
-//          alpha =  A[C.size()-1];
-//          resu(elem,0,0) =  B0[C.size()-1];
-//          resu(elem,0,1) =  B1[C.size()-1];
-//          resu(elem,0,2) =  B2[C.size()-1];
-//          resu(elem,1,0) =  B1[C.size()-1];
-//          resu(elem,1,1) =  B3[C.size()-1];
-//          resu(elem,1,2) =  B4[C.size()-1];
-//          resu(elem,2,0) =  B2[C.size()-1];
-//          resu(elem,2,1) =  B4[C.size()-1];
-//          resu(elem,2,2) =  B5[C.size()-1];
-//        }
-//
-//      else
-//        {
-//          alpha = 0.5 *( A[line_inf] + A[line_inf]);
-//          resu(elem,0,0) = 0.5 *( B0[line_inf] + B0[line_inf]);
-//          resu(elem,0,1) = 0.5 *( B1[line_inf] + B1[line_inf]);
-//          resu(elem,0,2) = 0.5 *( B2[line_inf] + B2[line_inf]);
-//          resu(elem,1,0) = 0.5 *( B1[line_inf] + B1[line_inf]);
-//          resu(elem,1,1) = 0.5 *( B3[line_inf] + B3[line_inf]);
-//          resu(elem,1,2) = 0.5 *( B4[line_inf] + B4[line_inf]);
-//          resu(elem,2,0) = 0.5 *( B2[line_inf] + B2[line_inf]);
-//          resu(elem,2,1) = 0.5 *( B4[line_inf] + B4[line_inf]);
-//          resu(elem,2,2) = 0.5 *( B5[line_inf] + B5[line_inf]);
-//        }
+      if (tbnn->is_canal_carre_)
+        // TODO: calculate inputs and call the NN for SDF
+        Cerr << " Testing SDF line 1295 " << finl;
+      b = tbnn->predict(alpha, y_plus, Re_t);
 
+      //Cerr << "y_plus: "<< y_plus << ", b_12 =" << b[1]  << finl;
+      //Cerr << "alpha should be : "<< 3* (1-y_elem) << ", alpha = " << alpha  << finl;
 
-
+      // copy of the predictions in resu array
+      resu(elem,0,0) = b[0];
+      resu(elem,0,1) = b[1];
+      resu(elem,0,2) = b[2];
+      resu(elem,1,0) = b[1];
+      resu(elem,1,1) = b[3];
+      resu(elem,1,2) = b[4];
+      resu(elem,2,0) = b[2];
+      resu(elem,2,1) = b[4];
+      resu(elem,2,2) = b[5];
 
       g1(elem) = tbnn->get_g1(resu(elem,0,1), alpha);
-    }
 
+      //      //here insert the injection of the DNS results of B
+      //
+      //      int line_inf = -1;
+      //
+      //      for (unsigned int i = 0; i < C.size(); i++)
+      //        {
+      //          if (y_elem < C[i])
+      //            {
+      //              line_inf = i;
+      //              break;
+      //            }
+      //        }
+      //
+      //      // Altrimenti, imposta alpha_true al valore corrispondente da A.txt
+      //      if (line_inf == 0)
+      //        {
+      //          alpha = 0.5 * A[line_inf];
+      //          resu(elem,0,0) =  B0[line_inf];
+      //          resu(elem,0,1) =  B1[line_inf];
+      //          resu(elem,0,2) =  B2[line_inf];
+      //          resu(elem,1,0) =  B1[line_inf];
+      //          resu(elem,1,1) =  B3[line_inf];
+      //          resu(elem,1,2) =  B4[line_inf];
+      //          resu(elem,2,0) =  B2[line_inf];
+      //          resu(elem,2,1) =  B4[line_inf];
+      //          resu(elem,2,2) =  B5[line_inf];
+      //        }
+      //
+      //      else if (line_inf == -1) // it means it is the highest cell
+      //
+      //        {
+      //          alpha =  A[C.size()-1];
+      //          resu(elem,0,0) =  B0[C.size()-1];
+      //          resu(elem,0,1) =  B1[C.size()-1];
+      //          resu(elem,0,2) =  B2[C.size()-1];
+      //          resu(elem,1,0) =  B1[C.size()-1];
+      //          resu(elem,1,1) =  B3[C.size()-1];
+      //          resu(elem,1,2) =  B4[C.size()-1];
+      //          resu(elem,2,0) =  B2[C.size()-1];
+      //          resu(elem,2,1) =  B4[C.size()-1];
+      //          resu(elem,2,2) =  B5[C.size()-1];
+      //        }
+      //
+      //      else
+      //        {
+      //          alpha = 0.5 *( A[line_inf] + A[line_inf]);
+      //          resu(elem,0,0) = 0.5 *( B0[line_inf] + B0[line_inf]);
+      //          resu(elem,0,1) = 0.5 *( B1[line_inf] + B1[line_inf]);
+      //          resu(elem,0,2) = 0.5 *( B2[line_inf] + B2[line_inf]);
+      //          resu(elem,1,0) = 0.5 *( B1[line_inf] + B1[line_inf]);
+      //          resu(elem,1,1) = 0.5 *( B3[line_inf] + B3[line_inf]);
+      //          resu(elem,1,2) = 0.5 *( B4[line_inf] + B4[line_inf]);
+      //          resu(elem,2,0) = 0.5 *( B2[line_inf] + B2[line_inf]);
+      //          resu(elem,2,1) = 0.5 *( B4[line_inf] + B4[line_inf]);
+      //          resu(elem,2,2) = 0.5 *( B5[line_inf] + B5[line_inf]);
+      //        }
+
+    }
 
   // save predictions and g1 values
   g1_ = g1;
@@ -1305,6 +1354,7 @@ double Tenseur_Reynolds_Externe_VDF_Face::compute_alpha( double k, double eps, d
   return alpha;
 }
 
+// TODO: ADD compute T funciton
 
 double Tenseur_Reynolds_Externe_VDF_Face::compute_y_plus( double y_plus_wall, double h_maille_paroi, double h_elem)
 {
@@ -1315,6 +1365,8 @@ double Tenseur_Reynolds_Externe_VDF_Face::compute_y_plus( double y_plus_wall, do
   return y_plus;
 
 }
+
+// TODO: ADD compute z_plus funciton
 
 double Tenseur_Reynolds_Externe_VDF_Face::compute_Re_t(double y_plus_wall, double h_maille_paroi)
 {

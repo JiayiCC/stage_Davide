@@ -9,6 +9,7 @@
 
 PrePostNN::PrePostNN(string filename)
 {
+  // TODO : Add SDF pre-post tags
   string buffer, tag;
   size_t npos;
   ifstream f(filename,ios::in);
@@ -76,6 +77,9 @@ PrePostNN::PrePostNN(string filename)
       tag = "PP_B:";
       npos = buffer.find(tag);
       if(npos != string::npos) ppb = ReadPPBFromLine(buffer,tag,npos);
+      tag = "NUM_T:";
+      npos = buffer.find(tag);
+      if(npos != string::npos) num_t = ReadOneDataFromLine(buffer,tag,npos);
       tag = "DATADIR:";
       npos = buffer.find(tag);
       if(npos != string::npos) datadir = ReadPPLFromLine(buffer,tag,npos);
@@ -164,7 +168,7 @@ double PrePostNN::ReadOneDataFromLine(string buffer,string tag,size_t npos)
 }
 
 enum pp_T PrePostNN::ReadPPTFromLine(string buffer,string tag,size_t npos)
-{
+{//TODO: Correct T processing function
   string tmp;
   size_t ltag;
   enum pp_T ret = INDEFT;
@@ -304,6 +308,7 @@ vector<vector<double>> PrePostNN::ReadDataFromSeveralLines(ifstream &f,int nblin
 
 void PrePostNN::AllDisplay()
 {
+  // TODO : Add SDF pre-post values to display
   display("OLD_ALPHA:",alpha);
   display("LAMBDA_MEAN:",lmean);
   display("LAMBDA_MAX:",lmax);

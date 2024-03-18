@@ -86,4 +86,6 @@ private:
   enum pp_re_tau ppre_tau;
   enum pp_b ppb;
   
+  double num_t;
+
 };

@@ -20,6 +20,10 @@ public:
   vector<double> predict(double alpha, double y_plus, double Re_t);
   double get_g1(double b1, double alpha);
   vector<double> get_t0() { return _ppNN->get_t0(); };
+  inline void canal_plan( bool val );
+  inline void canal_carre( bool val);
+  bool is_canal_plan_;
+  bool is_canal_carre_;
 
 private:
 
@@ -54,3 +58,15 @@ private:
   //fdeep::model*  upload_model ();
 
 };
+
+inline void TBNN::canal_plan( bool val )
+{
+  is_canal_plan_ = val;
+}
+
+inline void TBNN::canal_carre( bool val )
+{
+  is_canal_carre_ = val;
+}
+
+
