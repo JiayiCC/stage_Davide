@@ -5,7 +5,7 @@
 using namespace std;
 
 enum pp_lambda {INDEFL,LNORM,LU,LUS};
-enum pp_T {INDEFT,TF,TR};
+enum pp_T {INDEFT,TF,TR,FROT};
 enum pp_alpha {INDEFALPHA,MAXN_A};
 enum pp_y_plus {INDEFY_PLUS,MAXLOG};
 enum pp_re_tau {INDEFRE_TAU,MAXN_RET};
@@ -36,6 +36,7 @@ public:
   double get_alpha_max() {return alpha_max;}
   double get_y_plus_max_log() {return y_plus_max_log;}
   double get_re_tau_max() {return Re_t_max;}
+  int get_numT() {return num_t;}
   string get_datadir() {return datadir;}
   enum pp_alpha get_ppalpha() {return ppalpha;}
   enum pp_y_plus get_ppy_plus() {return ppy_plus;}
@@ -86,6 +87,6 @@ private:
   enum pp_re_tau ppre_tau;
   enum pp_b ppb;
   
-  double num_t;
+  int num_t;
 
 };

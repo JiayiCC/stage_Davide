@@ -18,6 +18,7 @@ public:
   ~TBNN();
 
   vector<double> predict(double alpha, double y_plus, double Re_t);
+  vector<double> predict_carre(vector<double> lambda, vector<vector<double>> T);
   double get_g1(double b1, double alpha);
   vector<double> get_t0() { return _ppNN->get_t0(); };
   inline void canal_plan( bool val );
@@ -34,22 +35,23 @@ private:
   PrePostNN *_ppNN;               // objet pre et post processing
   
 // Lambda pre-processing
-  //vector<double> _plambda;        // pre-processed lambda
+  vector<double> _plambda;        // pre-processed lambda
+
   double _pp_alpha;
   double _pp_y_plus;
   double _pp_Re_t;
 
 // T pre-processing
   double _normf1 = 0;                 // norm de froebenius pour le tenseur T1
-//  vector<vector<double>> _pT;     // pre-processed T
+  vector<vector<double>> _pT;     // pre-processed T
 
 // b post-processing
   vector<double> _pb;             // result of the prediction not post-processed
   vector<double> _b;              // result of the prediction post-processed
 
 // process methods
-//  void process_lambda(vector<double> lambda); // calculate the pre-processed lambda
-//  void process_T(vector<vector<double>> T);   // calculate the pre-processed T
+  void process_lambda(vector<double> lambda); // calculate the pre-processed lambda
+  void process_T(vector<vector<double>> T);   // calculate the pre-processed T
   void applyNN();                             // prédiction du réseau de neurones
   void process_b();				  // calculate the post-processed b
   void process_alpha(double alpha);

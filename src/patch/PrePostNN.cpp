@@ -9,7 +9,6 @@
 
 PrePostNN::PrePostNN(string filename)
 {
-  // TODO : Add SDF pre-post tags
   string buffer, tag;
   size_t npos;
   ifstream f(filename,ios::in);
@@ -28,7 +27,7 @@ PrePostNN::PrePostNN(string filename)
       if(npos != string::npos) lmax = ReadDataFromLine(buffer,tag,npos);
       tag = "T_FN:";
       npos = buffer.find(tag);
-      if(npos != string::npos) tfn = ReadDataFromLine(buffer,tag,npos);
+      if(npos != string::npos) tfn = ReadDataFromLine(buffer,tag,npos); //TODO: adpat SDF T_FN values
       tag = "B_SIGMA:";
       npos = buffer.find(tag);
       if(npos != string::npos) bsigma = ReadOneDataFromLine(buffer,tag,npos);
@@ -168,7 +167,7 @@ double PrePostNN::ReadOneDataFromLine(string buffer,string tag,size_t npos)
 }
 
 enum pp_T PrePostNN::ReadPPTFromLine(string buffer,string tag,size_t npos)
-{//TODO: Correct T processing function
+{
   string tmp;
   size_t ltag;
   enum pp_T ret = INDEFT;
@@ -179,6 +178,7 @@ enum pp_T PrePostNN::ReadPPTFromLine(string buffer,string tag,size_t npos)
 
   if( tmp.compare("TR") == 0 ) ret = TR;
   else if( tmp.compare("TF") == 0 ) ret = TF;
+  else if ( tmp.compare("FROT") == 0 ) ret = FROT;
 
   return(ret);
 }

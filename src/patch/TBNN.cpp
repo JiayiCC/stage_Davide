@@ -38,18 +38,21 @@ TBNN::~TBNN()
 
 vector<double> TBNN::predict(double alpha, double y_plus, double Re_t)
 {
-  if (is_canal_plan_)
-	  //cerr << "Processing in plane channel flow way" << endl;
-	  cerr << " Testing PCF TBNN.cpp line 43 " << endl;
-	  process_alpha(alpha);
-	  process_y_plus(y_plus);
-	  process_Re_t(Re_t);
-	  applyNN();
-	  process_b();
-  if (is_canal_carre_)
-	  //cerr << "Processing in square duct flow way" << endl;
-	  cerr << " Testing SDF TBNN.cpp line 50 " << endl;
-  	  // TODO : add sdf processing functions
+  //cerr << "Processing in plane channel flow way" << endl;
+  process_alpha(alpha);
+  process_y_plus(y_plus);
+  process_Re_t(Re_t);
+  applyNN();
+  process_b();
+  return(_b);
+}
+
+vector<double> TBNN::predict_carre(vector<double> lambda, vector<vector<double>> T)
+{
+  process_lambda(lambda);
+  process_T(T);
+  applyNN();
+  process_b();
   return(_b);
 }
 
@@ -110,17 +113,21 @@ void TBNN::process_Re_t(double Re_t)
   }
 }
 //
-//void TBNN::process_lambda(vector<double> lambda)
-// TODO : process lambda
-//{
-//  vector<double> lc;                 // lambda centre
-//  vector<double> lcr;                // lambda centre reduit
-//  size_t nbl = lambda.size();  // nombre d'invariants lambda
-//
-//  lc.resize(nbl);
-//  lcr.resize(nbl);
-//  _plambda.resize(nbl);
-//
+void TBNN::process_lambda(vector<double> lambda)
+{
+  vector<double> lc;                 // lambda centre
+  vector<double> lcr;                // lambda centre reduit
+  size_t nbl = lambda.size();  // nombre d'invariants lambda
+
+  lc.resize(nbl);
+  lcr.resize(nbl);
+  _plambda.resize(nbl);
+
+
+  for(unsigned int i=0;i<nbl;i++)
+	  //_plambda[i] = sgn(lambda[i]) * ( pow(10, abs(lambda[i])) - 1 );
+  	  _plambda[i] = sgn(lambda[i]) * log( 1 + abs(lambda[i]) );
+
 //  switch(_ppNN->get_ppl())
 //  {
 //  case LNORM:
@@ -180,29 +187,32 @@ void TBNN::process_Re_t(double Re_t)
 //    }
 //    break;
 //  default:
-//    // on lance une exception
+    // on lance une exception
 //    cerr << "Mauvaise methode de pre traitement des lambda" << endl;
 //    break;
 //  }
-//}
+}
 
-//void TBNN::process_T(vector<vector<double>> T)
-//{
-// TODO : process T
-//  size_t nbt = T.size();    // nombre de tenseurs T
-//  size_t nbb = T[0].size(); // taille de chacun des tenseurs T
+void TBNN::process_T(vector<vector<double>> T)
+{
+  size_t nbt = T.size();    // nombre de tenseurs T
+  size_t nbb = T[0].size(); // taille de chacun des tenseurs T
 //
-//  _pT.resize(nbt);
-//  for(unsigned i=0;i<nbt;i++)
-//    _pT[i].resize(nbb);
-//
-//  // le premier tenseur T0 reste inchange
-//  for(unsigned int j=0;j<nbb;j++)
-//    _pT[0][j] = T[0][j];
-//
-//  // pre process de T
-//  switch(_ppNN->get_ppt())
-//  {
+  _pT.resize(nbt);
+  for(unsigned i=0;i<nbt;i++)
+    _pT[i].resize(nbb);
+
+
+
+// pre process de T
+  switch(_ppNN->get_ppt())
+  {
+  	case FROT:
+		// on divise le tenseur Ti par la norme globale
+		for(unsigned int i=0;i<nbt;i++)
+			for(unsigned int j=0;j<nbb;j++)
+				_pT[i][j] = T[i][j] / _ppNN->get_tfn()[i];
+		break;
 //  case TF:
 //    // on calcule la norme de Frobenius de chaque tenseur
 //    for(unsigned int i=1;i<nbt;i++){
@@ -221,30 +231,21 @@ void TBNN::process_Re_t(double Re_t)
 //      for(unsigned int j=0;j<nbb;j++)
 //	_pT[i][j] = T[i][j] / _ppNN->get_tfn()[i-1];
 //    break;
-//  default:
-//    // on lance une exception
-//    cerr << "Mauvaise methode de pre traitement des tenseurs T" << endl;
-//    break;
-//  }
-//}
+	default:
+		// on lance une exception
+		cerr << "Mauvaise methode de pre traitement des tenseurs T" << endl;
+		break;
+  }
+}
 
 void TBNN::process_b()
 {
-//  vector<int> iT = _ppNN->get_iT();
-//  size_t nbt = iT.size();
-//  size_t nbb = _pT[0].size(); //IL FAUT CHANGER T0 GEN!!!!!!!!!!!!!!
-//
-//  // calcul de _pb a partir de _g et de _pT
-//  _pb.resize(nbb);
-//  for(unsigned int i=0;i<nbb;i++){
-//    _pb[i] = 0;
-//    for(unsigned int j=0;j<nbt;j++)
-//      _pb[i] += _g[j] * _pT[iT[j]][i];
-//  }
-	size_t nbb = 6;
-	_pb.resize(nbb);
+	size_t nbb = 0;
+	size_t nbt = 0;
+
 	if (is_canal_plan_)
-		cerr << " Testing PCF line 245 " << endl;
+		nbb = 6;
+		_pb.resize(nbb);
 
 		_pb[1] = 0.5 * _pp_alpha * _g[1];
 		_pb[2] = 0.0;
@@ -325,52 +326,59 @@ void TBNN::process_b()
 			cerr << "Bad name of NN file .json (not 'Cas#')" << endl;
 
 	if (is_canal_carre_)
-		cerr << " Testing SDF TBNN.cpp line 328 " << endl;
-		// TODO : calculate b from g
+		//vector<int> iT = _ppNN->get_iT();
+		nbt = _ppNN->get_numT();
+		nbb = _pT[0].size(); //IL FAUT CHANGER T0 GEN!!!!!!!!!!!!!!
+
+		// calcul de _pb a partir de _g et de _pT
+		_pb.resize(nbb);
+		for(unsigned int i=0;i<nbb;i++){
+			_pb[i] = 0;
+			for(unsigned int j=0;j<nbt;j++)
+				_pb[i] += _g[j] * _pT[j][i];
+		}
 
   // post process de b
   _b.resize(nbb);
   for(unsigned int i=0;i<nbb;i++)
-    _b[i] = _ppNN->get_bsigma() * _pb[i];
+	_b[i] = _ppNN->get_bsigma() * _pb[i];
 }
 
 void TBNN::applyNN()
 {
-//  vector<int> il = _ppNN->get_ilambda();
-//  vector<int> iT = _ppNN->get_iT();
-//  Tensor in((int)il.size());
-//  Tensor out;
-//  size_t nbt = iT.size();
-//
-//  _g.resize(nbt);
-//
-//  // l'entree du reseau est determinee par les indices des lambdas definis dans le vecteur il
-//  for(unsigned int i=0;i<il.size();i++)
-//    in.data_[i] = (float)_plambda[il[i]];
-//
-//  // on fait la prediction a l'aide du reseau de neurones
-//  _model.Apply(&in,&out);
-//
-//  // on stocke les sorties dans _g
-//  for(unsigned int i=0;i<nbt;i++) _g[i] = out(i);
-
 	//fdeep::model _model_uploaded = fdeep::load_model(_model_file);
-	const auto result = _model_uploaded->predict({ fdeep::tensor(fdeep::tensor_shape(static_cast<std::size_t>(3)), vector<float>{static_cast<float>(_pp_alpha), static_cast<float>(_pp_y_plus), static_cast<float>(_pp_Re_t)}) });
 
-	if (is_canal_plan_)
-		cerr << " Testing PCF TBNN.cpp line 361 " << endl;
+	if (is_canal_plan_){
+		const auto result_plan =  _model_uploaded->predict({ fdeep::tensor(fdeep::tensor_shape(static_cast<std::size_t>(3)), vector<float>{static_cast<float>(_pp_alpha), static_cast<float>(_pp_y_plus), static_cast<float>(_pp_Re_t)}) });
 
-		_g.resize(result[0].to_vector().size());
-		for (unsigned int i =0; i < result[0].to_vector().size(); i++)
-			_g[i] = result[0].to_vector()[i];
+		_g.resize(result_plan[0].to_vector().size());
+		for (unsigned int i =0; i < result_plan[0].to_vector().size(); i++)
+			_g[i] = result_plan[0].to_vector()[i];
 		_g[1] *= -1;
 
-		if (result[0].to_vector().size() != 3)
+		if (result_plan[0].to_vector().size() != 3)
 			cerr << "Bad treatment of model.predict" << endl;
+	}
 
-	if (is_canal_carre_)
-		cerr << " Testing SDF TBNN.cpp line 372 " << endl;
-		//TODO: retrieve gn from NN
+	if (is_canal_carre_){
+
+		//vector<int> il = _ppNN->get_ilambda();
+		//vector<int> iT = _ppNN->get_iT();
+		Tensor in(5);
+		Tensor out;
+		size_t nbt = _ppNN->get_numT();
+
+		_g.resize(nbt);
+
+		// on fait la prediction a l'aide du reseau de neurones
+		std::vector<float> _flambda(_plambda.begin(),_plambda.end());
+		const auto result_carre = _model_uploaded->predict({ fdeep::tensor(fdeep::tensor_shape(static_cast<std::size_t>(5)), _flambda) });
+
+		// on stocke les sorties dans _g
+		_g.resize(result_carre[0].to_vector().size());
+		for (unsigned int i =0; i < result_carre[0].to_vector().size(); i++)
+			_g[i] = result_carre[0].to_vector()[i];
+	}
 
 }
 
@@ -382,8 +390,7 @@ double TBNN::get_g1(double b1, double alpha) //double y_elem, std::vector<double
 		ret = 2 * b1/ alpha;
 
 	if (is_canal_carre_)
-		cerr << " Testing SDF TBNN.cpp line 385 " << endl;
-		//TODO: get g1 from NN
+		ret *= _ppNN->get_bsigma() / _ppNN->get_tfn()[1];
 
 //   //post process de g1
 //  switch(_ppNN->get_ppt())
