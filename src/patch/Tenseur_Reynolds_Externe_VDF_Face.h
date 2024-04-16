@@ -66,8 +66,8 @@ public:
   double compute_Re_t(double y_plus_wall, double h_maille_paroi);
 
 
-  DoubleTab get_bij() const;
-  DoubleTab get_g1() const ;
+  const DoubleTab& get_bij() const;
+  const DoubleTab& get_g1() const ;
 
 protected:
   void readNN();
@@ -81,28 +81,30 @@ protected:
   REF(Domaine_Cl_VDF) le_dom_Cl_VDF;
   void associer_domaines(const Domaine_dis& ,const Domaine_Cl_dis& ) override;
 
-//  void Calcul_RSLambda();
+  void Calcul_RSLambda();
   DoubleTab& Calcul_bij_TBNN(DoubleTab& resu);
+  DoubleTab& Calcul_bij_TBNN_carre(DoubleTab& resu);
   DoubleTab& Calcul_bij_NL_TBNN(DoubleTab& );
+  DoubleTab& Calcul_bij_NL_TBNN_carre(DoubleTab& );
   DoubleTab& Calcul_Tenseur_Reynolds( DoubleTab& );
   DoubleTab& Calcul_Tenseur_Reynolds_NL( DoubleTab& );
 
-//  DoubleTab lambda_1_etoile_;
-//  DoubleTab lambda_2_etoile_;
-//  DoubleTab lambda_3_etoile_;
-//  DoubleTab lambda_4_etoile_;
-//  DoubleTab lambda_5_etoile_;
+  DoubleTab lambda_1_etoile_;
+  DoubleTab lambda_2_etoile_;
+  DoubleTab lambda_3_etoile_;
+  DoubleTab lambda_4_etoile_;
+  DoubleTab lambda_5_etoile_;
 //
-//  DoubleTab T1_etoile_;
-//  DoubleTab T2_etoile_;
-//  DoubleTab T3_etoile_;
-//  DoubleTab T4_etoile_;
-//  DoubleTab T5_etoile_;
-//  DoubleTab T6_etoile_;
-//  DoubleTab T7_etoile_;
-//  DoubleTab T8_etoile_;
-//  DoubleTab T9_etoile_;
-//  DoubleTab T10_etoile_;
+  DoubleTab T1_etoile_;
+  DoubleTab T2_etoile_;
+  DoubleTab T3_etoile_;
+  DoubleTab T4_etoile_;
+  DoubleTab T5_etoile_;
+  DoubleTab T6_etoile_;
+  DoubleTab T7_etoile_;
+  DoubleTab T8_etoile_;
+  DoubleTab T9_etoile_;
+  DoubleTab T10_etoile_;
 
   DoubleTab g1_;
   DoubleTab bij_;

@@ -18,6 +18,7 @@ public:
   ~PrePostNN();
 
   void AllDisplay();
+  void AllDisplay_carre();
 
   vector<double> get_alpha() {return alpha;}
   vector<double> get_lmean() {return lmean;}
@@ -59,10 +60,6 @@ private:
   enum pp_re_tau ReadPPReTauFromLine(string buffer,string tag,size_t npos);
   enum pp_b ReadPPBFromLine(string buffer,string tag,size_t npos);
   string ReadStringFromLine(string buffer,string tag,size_t npos);
-
-
-
-
 
   vector<double> alpha;
   vector<double> lmean;

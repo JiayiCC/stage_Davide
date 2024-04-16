@@ -4,7 +4,6 @@
 #include <sstream>
 #include <algorithm>
 #include <Process.h>
-
 #include <PrePostNN.h>
 
 PrePostNN::PrePostNN(string filename)
@@ -15,73 +14,67 @@ PrePostNN::PrePostNN(string filename)
 
   if(f){
     while(getline(f, buffer)){
-      buffer = trim(buffer);
-      tag = "OLD_ALPHA:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) alpha = ReadDataFromLine(buffer,tag,npos);
-      tag = "LAMBDA_MEAN:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) lmean = ReadDataFromLine(buffer,tag,npos);
-      tag = "LAMBDA_MAX:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) lmax = ReadDataFromLine(buffer,tag,npos);
-      tag = "T_FN:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) tfn = ReadDataFromLine(buffer,tag,npos); //TODO: adpat SDF T_FN values
-      tag = "B_SIGMA:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) bsigma = ReadOneDataFromLine(buffer,tag,npos);
-      tag = "LAMBDA_AU:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) lambda_au = ReadDataFromSeveralLines(f,5);
-      tag = "LAMBDA_AS:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) lambda_as = ReadDataFromSeveralLines(f,5);
-      tag = "T_THRESH:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) t_thresh = ReadOneDataFromLine(buffer,tag,npos);
-      tag = "PP_LAMBDA:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) ppl = ReadPPLFromLine(buffer,tag,npos);
-      tag = "PP_T:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) ppt = ReadPPTFromLine(buffer,tag,npos);
-      tag = "ILAMBDA:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) ilambda = ReadIndexFromLine(buffer,tag,npos);
-      tag = "IT:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) iT = ReadIndexFromLine(buffer,tag,npos);
-      tag = "T0:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) t0 = ReadDataFromLine(buffer,tag,npos); //from line belowmine start
-      tag = "ALPHA_MAX:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) alpha_max = ReadOneDataFromLine(buffer,tag,npos);
-      tag = "PP_ALPHA:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) ppalpha = ReadPPAlphaFromLine(buffer,tag,npos);
-      tag = "Y_PLUS_MAX_LOG:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) y_plus_max_log = ReadOneDataFromLine(buffer,tag,npos);
-      tag = "PP_Y_PLUS:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) ppy_plus = ReadPPYPlusFromLine(buffer,tag,npos);
-      tag = "RE_TAU_MAX:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) Re_t_max = ReadOneDataFromLine(buffer,tag,npos);
-      tag = "PP_RE_TAU:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) ppre_tau = ReadPPReTauFromLine(buffer,tag,npos);
-      tag = "PP_B:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) ppb = ReadPPBFromLine(buffer,tag,npos);
-      tag = "NUM_T:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) num_t = ReadOneDataFromLine(buffer,tag,npos);
-      tag = "DATADIR:";
-      npos = buffer.find(tag);
-      if(npos != string::npos) datadir = ReadPPLFromLine(buffer,tag,npos);
+		buffer = trim(buffer);
+		tag = "OLD_ALPHA:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) alpha = ReadDataFromLine(buffer,tag,npos);
+		tag = "LAMBDA_MEAN:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) lmean = ReadDataFromLine(buffer,tag,npos);
+		tag = "LAMBDA_MAX:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) lmax = ReadDataFromLine(buffer,tag,npos);
+		tag = "T_FN:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) tfn = ReadDataFromLine(buffer,tag,npos);
+		tag = "B_SIGMA:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) bsigma = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "LAMBDA_AU:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) lambda_au = ReadDataFromSeveralLines(f,5);
+		tag = "LAMBDA_AS:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) lambda_as = ReadDataFromSeveralLines(f,5);
+		tag = "T_THRESH:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) t_thresh = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "PP_LAMBDA:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppl = ReadPPLFromLine(buffer,tag,npos);
+		tag = "PP_T:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppt = ReadPPTFromLine(buffer,tag,npos);
+		tag = "T0:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) t0 = ReadDataFromLine(buffer,tag,npos); //from line belowmine start
+		tag = "ALPHA_MAX:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) alpha_max = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "PP_ALPHA:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppalpha = ReadPPAlphaFromLine(buffer,tag,npos);
+		tag = "Y_PLUS_MAX_LOG:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) y_plus_max_log = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "PP_Y_PLUS:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppy_plus = ReadPPYPlusFromLine(buffer,tag,npos);
+		tag = "RE_TAU_MAX:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) Re_t_max = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "PP_RE_TAU:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppre_tau = ReadPPReTauFromLine(buffer,tag,npos);
+		tag = "PP_B:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppb = ReadPPBFromLine(buffer,tag,npos);
+		tag = "NUM_T:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) num_t = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "DATADIR:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) datadir = ReadPPLFromLine(buffer,tag,npos);
 
     }
     f.close();
@@ -308,18 +301,19 @@ vector<vector<double>> PrePostNN::ReadDataFromSeveralLines(ifstream &f,int nblin
 
 void PrePostNN::AllDisplay()
 {
-  // TODO : Add SDF pre-post values to display
-  display("OLD_ALPHA:",alpha);
-  display("LAMBDA_MEAN:",lmean);
-  display("LAMBDA_MAX:",lmax);
-  display("LAMBDA_AU:",lambda_au);
-  display("LAMBDA_AS:",lambda_as);
+  cout << "ALPHA_MAX: " << alpha_max << endl;
+  cout << "Y_PLUS_MAX_LOG: " << y_plus_max_log << endl;
+  cout << "RE_TAU_MAX: " << Re_t_max << endl;
+  cout << "B_SIGMA: " << bsigma << endl;
+
+}
+
+void PrePostNN::AllDisplay_carre()
+{
+  cout << "Y_PLUS_MAX_LOG: " << y_plus_max_log << endl;
+  cout << "RE_TAU_MAX: " << Re_t_max << endl;
+  cout << "NUM_T: " << num_t << endl;
   display("T_FN:",tfn);
   cout << "B_SIGMA: " << bsigma << endl;
-  cout << "T_THRESH: " << t_thresh << endl;
-  cout << "PP_LAMBDA:" << " " << (unsigned int) ppl << endl;
-  cout << "PP_T:" << " " << (unsigned int) ppt << endl;
-  display("ILAMBDA:",ilambda);
-  display("IT:",iT);
-  display("T0:",t0);
+
 }

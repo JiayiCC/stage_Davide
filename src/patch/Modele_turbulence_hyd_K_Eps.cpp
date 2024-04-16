@@ -188,7 +188,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
   D=0;
   int is_modele_fonc=(mon_modele_fonc.non_nul());
   //is_modele_fonc=0;
-
+  int is_Cmu_constant = mon_modele_fonc.Calcul_is_Cmu_constant();
 
   if (tenseur_de_Reynolds_externe_)
     {
@@ -200,30 +200,30 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
             {
               // Cerr<< " On utilise Cmu du champ DNS " << finl;
               Cmu_.valeurs()[i] = LeCmu_tab(i,0);
+              is_Cmu_constant = 0;
+
             }
           else
             {
-              // Cerr<< " On utilise Cmu du réseau " << finl;
+              //Cerr<< " On utilise Cmu du réseau " << finl;
               Cmu_.valeurs()[i] = - g1( i );
+              is_Cmu_constant = 0;
             }
-//          Cmu[i] = LeCmu_tab(i,0);
-//          Cmu[i] = fabs( g1( i ) );
-//          Cerr << "CMU ==> " << Cmu[i] <<finl;
 
         }
 
     }
-  else if (is_modele_fonc)
+  if (is_modele_fonc)
     {
       // pour avoir nu en incompressible et mu en QC
       // et non comme on a divise K et eps par rho (si on est en QC)
       // on veut toujours nu
-      Cerr<< " On calucule la viscosité turbulente avec un modele_fonc"<< finl;
+      //Cerr<< " On calucule la viscosité turbulente avec un modele_fonc"<< finl;
       const Champ_Don ch_visco=ref_cast(Fluide_base,eqn_transp_K_Eps().milieu()).viscosite_cinematique();
-      const Champ_Don& ch_visco_cin =ref_cast(Fluide_base,eqn_transp_K_Eps().milieu()).viscosite_cinematique();
+      //const Champ_Don& ch_visco_cin =ref_cast(Fluide_base,eqn_transp_K_Eps().milieu()).viscosite_cinematique();
       // const Champ_Don& ch_visco_cin_ou_dyn =((const Op_Diff_K_Eps&) eqn_transp_K_Eps().operateur(0)).diffusivite();
 
-      const DoubleTab& tab_visco = ch_visco_cin->valeurs();
+      //const DoubleTab& tab_visco = ch_visco_cin->valeurs();
       //      const DoubleTab& tab_visco = ch_visco.valeurs();
       Fmu.resize(tab_K_Eps.dimension_tot(0));
       const Domaine_dis& le_dom_dis = eqn_transp_K_Eps().domaine_dis();
@@ -234,8 +234,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
       D=0;
       if (0)
         mon_modele_fonc.Calcul_D(D,le_dom_dis,eqn_transp_K_Eps().domaine_Cl_dis(),vit,tab_K_Eps,ch_visco_cin);
-       */
-      int is_Cmu_constant = mon_modele_fonc.Calcul_is_Cmu_constant();
+
       if (is_Cmu_constant==0)
         {
           Cerr<< " On utilise un Cmu non constant "<< finl;
@@ -243,7 +242,6 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
           mon_modele_fonc.Calcul_Cmu(Cmu_.valeurs(), le_dom_dis, le_dom_Cl_dis,
                                      vitesse, tab_K_Eps, LeEPS_MIN);
 
-          /*Paroi*/
           Nom lp=eqn_transp_K_Eps().modele_turbulence().loi_paroi().valeur().que_suis_je();
           if (lp!="negligeable_VEF")
             {
@@ -256,8 +254,8 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
                                                vitesse, tab_K_Eps, LeEPS_MIN);
             }
         }
-      else
-        Cerr<< " On utilise un Cmu constant "<< finl;
+
+      */
 
     }
 
@@ -272,6 +270,8 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
 
   if (non_prepare==1)
     {
+      Cerr << "non_prepare=1" << finl;
+
       Champ_Inc visco_turb_au_format_K_eps;
 
       visco_turb_au_format_K_eps.typer(type);
@@ -302,16 +302,21 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
             {
               if (tenseur_de_Reynolds_externe_)
                 {
+                  //Cerr << "Calculate turbulent viscosity by Cmu given by -g1" << finl;
                   visco_turb_K_eps[i] = Cmu_.valeurs()[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
                 }
               else if (is_modele_fonc)
                 {
-                  int is_Cmu_constant = mon_modele_fonc.Calcul_is_Cmu_constant();
+                  //int is_Cmu_constant = mon_modele_fonc.Calcul_is_Cmu_constant();
                   if (is_Cmu_constant)
+                    {
+                      visco_turb_K_eps[i] = Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
+                    }
 
-                    visco_turb_K_eps[i] = Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
                   else
-                    visco_turb_K_eps[i] = Fmu(i)*Cmu_.valeurs()(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
+                    {
+                      visco_turb_K_eps[i] = Fmu(i)*Cmu_.valeurs()(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
+                    }
                 }
               else
                 visco_turb_K_eps[i] = LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
@@ -327,26 +332,27 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
     }
   else
     {
+      Cerr << "non_prepare=0" << finl;
       for (int i=0; i<n; i++)
         {
           if (tab_K_Eps(i,1) <= LeEPS_MIN)
             {
+              //Cerr << "eps < eps min !!!!!!!!!!" << finl;
               visco_turb[i] = 0;
             }
           else
             {
               if (tenseur_de_Reynolds_externe_)
                 {
+                  //Cerr << "Calculate turbulent viscosity by Cmu given by -g1" << finl;
                   //visco_turb[i] = LeCmu_tab(i,0)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
                   visco_turb[i] =Cmu_.valeurs()[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
 
                 }
               else if (is_modele_fonc)
                 {
-                  int is_Cmu_constant = mon_modele_fonc.Calcul_is_Cmu_constant();
                   if (is_Cmu_constant)
                     {
-                      //Cerr << " On calucule la viscosité turbulente avec le Cmu constant du modele_fonc"<< finl;
                       visco_turb[i] =Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i)+1e-20);
                     }
                   else
@@ -360,7 +366,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
         }
     }
 
-//  Cout << "Modele turbulence " << visco_turb[20] << " " << Cmu[20] << " " << tab_K_Eps(20,0) << " " << tab_K_Eps(20,1) << finl;
+  //  Cout << "Modele turbulence " << visco_turb[20] << " " << Cmu[20] << " " << tab_K_Eps(20,0) << " " << tab_K_Eps(20,1) << finl;
 
 
   la_viscosite_turbulente.changer_temps(temps);
@@ -441,7 +447,7 @@ void imprimer_evolution_keps(const Champ_Inc& le_champ_K_Eps, const Schema_Temps
       k_max = Process::mp_max(k_max);
       eps_max = Process::mp_max(eps_max);
       nut_max = Process::mp_max(nut_max);
-       */
+      */
       ArrOfDouble values(3);
 
       values[0]=k_min;
@@ -527,13 +533,13 @@ bool Modele_turbulence_hyd_K_Eps::initTimeStep(double dt)
 }
 
 /*! @brief Effectue une mise a jour en temps du modele de turbulence.
- *
- * Met a jour l'equation de transport K-epsilon,
- *     calcule la loi de paroi et la viscosite turbulente
- *     au nouveau temps.
- *
- * @param (double temps) le temps de mise a jour
- */
+*
+* Met a jour l'equation de transport K-epsilon,
+*     calcule la loi de paroi et la viscosite turbulente
+*     au nouveau temps.
+*
+* @param (double temps) le temps de mise a jour
+*/
 void Modele_turbulence_hyd_K_Eps::mettre_a_jour(double temps)
 {
   Champ_Inc& ch_K_Eps = K_Eps();

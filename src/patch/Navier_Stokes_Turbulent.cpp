@@ -196,7 +196,9 @@ Entree& Navier_Stokes_Turbulent::lire_op_diff_turbulent(Entree& is)
     }
   else if (motbidon=="tenseur_Reynolds_externe")
     {
+      Cerr << " We detect tenseur_Reynolds_externe"<< finl;
       tenseur_de_Reynolds_externe_ = true;
+      Cerr << "The value of bool tenseur_de_Reynolds_externe_ is " << int(tenseur_de_Reynolds_externe_) << finl;
       terme_diffusif.typer(type);
       terme_diffusif.l_op_base().associer_eqn(*this);
       Cerr << terme_diffusif.valeur().que_suis_je() << finl;

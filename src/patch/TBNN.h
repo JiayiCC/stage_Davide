@@ -18,8 +18,9 @@ public:
   ~TBNN();
 
   vector<double> predict(double alpha, double y_plus, double Re_t);
-  vector<double> predict_carre(vector<double> lambda, vector<vector<double>> T);
+  vector<double> predict_carre(vector<double> lambda, vector<vector<double>> T, double y_plus, double z_plus, double Re_t);
   double get_g1(double b1, double alpha);
+  double get_g1_carre();
   vector<double> get_t0() { return _ppNN->get_t0(); };
   inline void canal_plan( bool val );
   inline void canal_carre( bool val);
@@ -39,6 +40,7 @@ private:
 
   double _pp_alpha;
   double _pp_y_plus;
+  double _pp_z_plus;
   double _pp_Re_t;
 
 // T pre-processing
@@ -57,6 +59,7 @@ private:
   void process_alpha(double alpha);
   void process_Re_t(double Re_t);
   void process_y_plus(double y_plus);
+  void process_z_plus(double z_plus);
   //fdeep::model*  upload_model ();
 
 };

@@ -14,9 +14,9 @@ int sgn(double v) {
 TBNN::TBNN(string keras_model_file,string preproc_file)
 {
   _ppNN = new PrePostNN(preproc_file); //dovrebbe essere ok
-//  _model_uploaded = std::unique_ptr(new fdeep::model());
+  //_model_uploaded = std::unique_ptr(new fdeep::model());
   _model_file = keras_model_file;
-  _model_uploaded = std::make_unique<fdeep::model>(fdeep::load_model( _model_file ));
+  _model_uploaded = std::make_unique<fdeep::model>(fdeep::load_model( _model_file, false ));
   _pp_alpha = 0.;
   _pp_y_plus = 0.;
   _pp_Re_t = 0.;
@@ -30,15 +30,9 @@ TBNN::~TBNN()
   delete(_ppNN);
 }
 
-//fdeep::model*  TBNN::upload_model ()
-//{
-//	return &fdeep::load_model( _model_file );
-//}
-
-
 vector<double> TBNN::predict(double alpha, double y_plus, double Re_t)
 {
-  //cerr << "Processing in plane channel flow way" << endl;
+  //cerr << "Pre-processing in plane channel flow way" << endl;
   process_alpha(alpha);
   process_y_plus(y_plus);
   process_Re_t(Re_t);
@@ -47,10 +41,14 @@ vector<double> TBNN::predict(double alpha, double y_plus, double Re_t)
   return(_b);
 }
 
-vector<double> TBNN::predict_carre(vector<double> lambda, vector<vector<double>> T)
+vector<double> TBNN::predict_carre(vector<double> lambda, vector<vector<double>> T, double y_plus, double z_plus, double Re_t)
 {
+  //cerr << "Processing in square duct flow way" << endl;
   process_lambda(lambda);
   process_T(T);
+  process_y_plus(y_plus);
+  process_z_plus(z_plus);
+  process_Re_t(Re_t);
   applyNN();
   process_b();
   return(_b);
@@ -77,21 +75,32 @@ void TBNN::process_alpha(double alpha)
 
 void TBNN::process_y_plus(double y_plus)
 {
-  switch(_ppNN->get_ppy_plus())
-  {
-  case MAXLOG:
+	if (is_canal_plan_){
+	    if( _ppNN->get_y_plus_max_log() > 0 )
+	    	_pp_y_plus = log10(y_plus) / _ppNN->get_y_plus_max_log();
+	    else
+	    	_pp_y_plus = log10(y_plus);
+	}
 
-    if( _ppNN->get_y_plus_max_log() > 0 )
-    	_pp_y_plus = log10(y_plus) / _ppNN->get_y_plus_max_log();
-    else
-    	_pp_y_plus = log10(y_plus);
-    break;
+	else if (is_canal_carre_){
+		_pp_y_plus = sgn(y_plus) * log( 1 + abs(y_plus) );
+	}
+	else {
+		cerr << "Mauvaise methode de pre traitement des y_plus" << endl;
+	}
 
-  default:
-    // on lance une exception
-    cerr << "Mauvaise methode de pre traitement des y_plus" << endl;
-    break;
-  }
+}
+
+
+void TBNN::process_z_plus(double z_plus)
+{
+	if (is_canal_carre_){
+		_pp_z_plus = sgn(z_plus) * log( 1 + abs(z_plus) );
+	}
+	else {
+		cerr << "Mauvaise methode de pre traitement des z_plus" << endl;
+	}
+
 }
 
 void TBNN::process_Re_t(double Re_t)
@@ -125,84 +134,17 @@ void TBNN::process_lambda(vector<double> lambda)
 
 
   for(unsigned int i=0;i<nbl;i++)
-	  //_plambda[i] = sgn(lambda[i]) * ( pow(10, abs(lambda[i])) - 1 );
   	  _plambda[i] = sgn(lambda[i]) * log( 1 + abs(lambda[i]) );
-
-//  switch(_ppNN->get_ppl())
-//  {
-//  case LNORM:
-//    // centrage des lambda
-//    if( _ppNN->get_lmean().size() == nbl )
-//      for(unsigned int i=0;i<nbl;i++)
-//        lc[i] = lambda[i] - _ppNN->get_lmean()[i];
-//    else
-//      for(unsigned int i=0;i<nbl;i++)
-//        lc[i] = lambda[i];
-//    // reduction des lambda
-//    for(unsigned int i=0;i<nbl;i++)
-//      _plambda[i] = lc[i] / _ppNN->get_lmax()[i];
-//    break;
-//  case LU:
-//    // puissance alpha
-//    if( _ppNN->get_alpha().size() == nbl )
-//      for(unsigned int i=0;i<nbl;i++)
-//        lc[i] = sgn(lambda[i]) * pow(std::fabs(lambda[i]),_ppNN->get_alpha()[i]);
-//    else
-//      for(unsigned int i=0;i<nbl;i++)
-//        lc[i] = lambda[i];
-//    // centrage des lambda
-//    if( _ppNN->get_lmean().size() == nbl )
-//      for(unsigned int i=0;i<nbl;i++)
-//        lc[i] = lc[i] - _ppNN->get_lmean()[i];
-//    // reduction des lambda
-//    for(unsigned int i=0;i<nbl;i++)
-//      lcr[i] = lc[i] / _ppNN->get_lmax()[i];
-//    // multiplication par transpose(au)
-//    for(unsigned int i=0;i<nbl;i++){
-//      _plambda[i] = 0.;
-//      for(unsigned int j=0;j<nbl;j++)
-//	_plambda[i] += _ppNN->get_lambda_au()[j][i] * lcr[j];
-//    }
-//    break;
-//  case LUS:
-//    // puissance alpha
-//    if( _ppNN->get_alpha().size() == nbl )
-//      for(unsigned int i=0;i<nbl;i++)
-//        lc[i] = sgn(lambda[i]) * pow(std::fabs(lambda[i]),_ppNN->get_alpha()[i]);
-//    else
-//      for(unsigned int i=0;i<nbl;i++)
-//        lc[i] = lambda[i];
-//    // centrage des lambda
-//    if( _ppNN->get_lmean().size() == nbl )
-//      for(unsigned int i=0;i<nbl;i++)
-//        lc[i] = lc[i] - _ppNN->get_lmean()[i];
-//    // reduction des lambda
-//    for(unsigned int i=0;i<nbl;i++)
-//      lcr[i] = lc[i] / _ppNN->get_lmax()[i];
-//    // multiplication par transpose(as)
-//    for(unsigned int i=0;i<nbl;i++){
-//      _plambda[i] = 0.;
-//      for(unsigned int j=0;j<nbl;j++)
-//	_plambda[i] += _ppNN->get_lambda_as()[j][i] * lcr[j];
-//    }
-//    break;
-//  default:
-    // on lance une exception
-//    cerr << "Mauvaise methode de pre traitement des lambda" << endl;
-//    break;
-//  }
 }
 
 void TBNN::process_T(vector<vector<double>> T)
 {
-  size_t nbt = T.size();    // nombre de tenseurs T
+  size_t nbt = _ppNN->get_numT(); // nombre de tenseurs T
   size_t nbb = T[0].size(); // taille de chacun des tenseurs T
 //
   _pT.resize(nbt);
   for(unsigned i=0;i<nbt;i++)
     _pT[i].resize(nbb);
-
-
 
 // pre process de T
   switch(_ppNN->get_ppt())
@@ -213,24 +155,6 @@ void TBNN::process_T(vector<vector<double>> T)
 			for(unsigned int j=0;j<nbb;j++)
 				_pT[i][j] = T[i][j] / _ppNN->get_tfn()[i];
 		break;
-//  case TF:
-//    // on calcule la norme de Frobenius de chaque tenseur
-//    for(unsigned int i=1;i<nbt;i++){
-//      double normf = 0.;
-//      for(unsigned int j=0;j<nbb;j++)
-//	normf += T[i][j] * T[i][j];
-//      normf = sqrt(normf);
-//      if(i==1) _normf1 = normf;
-//      for(unsigned int j=0;j<nbb;j++)
-//	_pT[i][j] = T[i][j] / (normf + _ppNN->get_t_thresh());
-//    }
-//    break;
-//  case TR:
-//    // on divise le tenseur Ti par la norme globale
-//    for(unsigned int i=1;i<nbt;i++)
-//      for(unsigned int j=0;j<nbb;j++)
-//	_pT[i][j] = T[i][j] / _ppNN->get_tfn()[i-1];
-//    break;
 	default:
 		// on lance une exception
 		cerr << "Mauvaise methode de pre traitement des tenseurs T" << endl;
@@ -243,7 +167,7 @@ void TBNN::process_b()
 	size_t nbb = 0;
 	size_t nbt = 0;
 
-	if (is_canal_plan_)
+	if (is_canal_plan_){
 		nbb = 6;
 		_pb.resize(nbb);
 
@@ -324,11 +248,12 @@ void TBNN::process_b()
 		}
 		else
 			cerr << "Bad name of NN file .json (not 'Cas#')" << endl;
+	}
 
-	if (is_canal_carre_)
+	if (is_canal_carre_){
 		//vector<int> iT = _ppNN->get_iT();
 		nbt = _ppNN->get_numT();
-		nbb = _pT[0].size(); //IL FAUT CHANGER T0 GEN!!!!!!!!!!!!!!
+		nbb = _pT[0].size();
 
 		// calcul de _pb a partir de _g et de _pT
 		_pb.resize(nbb);
@@ -337,6 +262,7 @@ void TBNN::process_b()
 			for(unsigned int j=0;j<nbt;j++)
 				_pb[i] += _g[j] * _pT[j][i];
 		}
+	}
 
   // post process de b
   _b.resize(nbb);
@@ -349,6 +275,7 @@ void TBNN::applyNN()
 	//fdeep::model _model_uploaded = fdeep::load_model(_model_file);
 
 	if (is_canal_plan_){
+		//_ppNN->AllDisplay();
 		const auto result_plan =  _model_uploaded->predict({ fdeep::tensor(fdeep::tensor_shape(static_cast<std::size_t>(3)), vector<float>{static_cast<float>(_pp_alpha), static_cast<float>(_pp_y_plus), static_cast<float>(_pp_Re_t)}) });
 
 		_g.resize(result_plan[0].to_vector().size());
@@ -362,22 +289,31 @@ void TBNN::applyNN()
 
 	if (is_canal_carre_){
 
-		//vector<int> il = _ppNN->get_ilambda();
-		//vector<int> iT = _ppNN->get_iT();
-		Tensor in(5);
-		Tensor out;
-		size_t nbt = _ppNN->get_numT();
+		//_ppNN->AllDisplay_carre();
 
+		// construct input vector
+		vector<float> input_vector(_plambda.begin(),_plambda.end());
+	    input_vector.push_back(static_cast<float>(_pp_y_plus));
+	    input_vector.push_back(static_cast<float>(_pp_z_plus));
+	    input_vector.push_back(static_cast<float>(_pp_Re_t));
+
+	    // resize output vector
+		size_t nbt = _ppNN->get_numT();
 		_g.resize(nbt);
 
 		// on fait la prediction a l'aide du reseau de neurones
-		std::vector<float> _flambda(_plambda.begin(),_plambda.end());
-		const auto result_carre = _model_uploaded->predict({ fdeep::tensor(fdeep::tensor_shape(static_cast<std::size_t>(5)), _flambda) });
+		const auto result_carre = _model_uploaded->predict({ fdeep::tensor(fdeep::tensor_shape(static_cast<std::size_t>(8)), input_vector) });
 
 		// on stocke les sorties dans _g
 		_g.resize(result_carre[0].to_vector().size());
 		for (unsigned int i =0; i < result_carre[0].to_vector().size(); i++)
 			_g[i] = result_carre[0].to_vector()[i];
+
+	    // Check the size of the results
+	    if (result_carre[0].to_vector().size() != 6)
+	    {
+	        cerr << "Bad treatment of model.predict" << endl;
+	    }
 	}
 
 }
@@ -386,54 +322,14 @@ double TBNN::get_g1(double b1, double alpha) //double y_elem, std::vector<double
 {
 
 	double ret = _g[1];
-	if (is_canal_plan_)
-		ret = 2 * b1/ alpha;
+	ret = 2 * b1/ alpha;
+	return ret; //-c_mu
+}
 
-	if (is_canal_carre_)
-		ret *= _ppNN->get_bsigma() / _ppNN->get_tfn()[1];
-
-//   //post process de g1
-//  switch(_ppNN->get_ppt())
-//  {
-//  case TF:
-//    // on multiplie par la norme de T1
-//    ret *= _normf1 + _ppNN->get_t_thresh();
-//    break;
-//  case TR:
-//    // on multiplie par la norme globale
-//    ret *= _ppNN->get_tfn()[0];
-//    break;
-//  default:
-//    // on lance une exception
-//    cerr << "Mauvaise methode de pre traitement des tenseurs T" << endl;
-//    break;
-//  }
-	//ret*= _ppNN->get_bsigma()/ _ppNN->get_alpha_max(); //circa 1/114
-
-
-//	double c_mu= 0.0;
-//
-//	int line_inf = -1;
-//
-//	      for (unsigned int i = 0; i < C.size(); i++)
-//	        {
-//	          if (y_elem < C[i])
-//	            {
-//	              line_inf = i;
-//	              break;
-//	            }
-//	        }
-//
-//	      // Altrimenti, imposta alpha_true al valore corrispondente da A.txt
-//	      if (line_inf == 0)
-//	        c_mu =  c_mu_DNS[line_inf];
-//
-//	      else if (line_inf == -1) // it means it is the highest cell
-//	        c_mu = c_mu_DNS[C.size()-1];
-//
-//	      else
-//	        c_mu = 0.5 * (c_mu_DNS[line_inf-1] + c_mu_DNS[line_inf]);
-
-	// ret = 2 * b1/ alpha; GIUSTOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+double TBNN::get_g1_carre()
+{
+	//cerr << "We get g1 carre" << endl;
+	double ret = _g[1];
+	ret *= _ppNN->get_bsigma() / _ppNN->get_tfn()[1];
   return ret; //-c_mu
 }
