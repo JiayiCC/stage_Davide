@@ -206,7 +206,8 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
           else
             {
               //Cerr<< " On utilise Cmu du réseau " << finl;
-              Cmu_.valeurs()[i] = - g1( i );
+              Cmu_.valeurs()[i] = abs(- g1( i ));
+              //Cmu_.valeurs()[i] = 0.09;
               is_Cmu_constant = 0;
             }
 

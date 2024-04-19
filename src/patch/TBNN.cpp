@@ -44,6 +44,10 @@ vector<double> TBNN::predict(double alpha, double y_plus, double Re_t)
 vector<double> TBNN::predict_carre(vector<double> lambda, vector<vector<double>> T, double y_plus, double z_plus, double Re_t)
 {
   //cerr << "Processing in square duct flow way" << endl;
+  //cerr << "lambda is " << lambda[0] << lambda[1] << lambda[2] << lambda[3] << lambda[4] << endl;
+  //cerr << "y_plus is " << y_plus << endl;
+  //cerr << "z_plus is " << z_plus << endl;
+  //cerr << "Re_t is " << Re_t << endl;
   process_lambda(lambda);
   process_T(T);
   process_y_plus(y_plus);
@@ -303,7 +307,7 @@ void TBNN::applyNN()
 
 		// on fait la prediction a l'aide du reseau de neurones
 		const auto result_carre = _model_uploaded->predict({ fdeep::tensor(fdeep::tensor_shape(static_cast<std::size_t>(8)), input_vector) });
-
+		//std::cout << fdeep::show_tensors(result_carre) << std::endl;
 		// on stocke les sorties dans _g
 		_g.resize(result_carre[0].to_vector().size());
 		for (unsigned int i =0; i < result_carre[0].to_vector().size(); i++)

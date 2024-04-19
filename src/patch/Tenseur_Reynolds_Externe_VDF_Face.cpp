@@ -50,6 +50,8 @@
 #include <algorithm>
 #include <fstream>
 
+//#define NON_LINEAR_BIJ
+
 Implemente_instanciable_sans_constructeur_ni_destructeur(Tenseur_Reynolds_Externe_VDF_Face,"Tenseur_Reynolds_Externe_VDF_Face",Source_base);
 
 // XD tenseur_Reynolds_externe source_base tenseur_Reynolds_externe 1 Use a neural network to estimate the values of the Reynolds tensor. The structure of the neural networks is stored in a file located in the share/reseaux_neurones directory.
@@ -759,10 +761,13 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_NL_TBNN_carre(DoubleTab
     {
       for (int i=0; i<Objet_U::dimension; i++)
         {
-          for (int j=i; j<Objet_U::dimension; j++)
+          for (int j=0; j<Objet_U::dimension; j++)
             {
-              resu_NL(elem,0,1) -= g1_(elem) * T1_etoile_(elem,i,j);
-              resu_NL(elem,1,0) -= g1_(elem) * T1_etoile_(elem,i,j);
+# ifdef NON_LINEAR_BIJ
+              resu_NL(elem,i,j) -= abs(g1_(elem)) * T1_etoile_(elem,i,j);
+# else
+              resu_NL(elem,i,j) = 0;
+# endif
             }
         }
     }
