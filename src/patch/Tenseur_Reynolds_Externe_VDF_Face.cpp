@@ -49,7 +49,7 @@
 #include <iostream>
 #include <algorithm>
 #include <fstream>
-
+using namespace std;
 //#define NON_LINEAR_BIJ
 
 Implemente_instanciable_sans_constructeur_ni_destructeur(Tenseur_Reynolds_Externe_VDF_Face,"Tenseur_Reynolds_Externe_VDF_Face",Source_base);
@@ -547,11 +547,17 @@ void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
               {
                 lambda_1(elem) += S2(elem,i,j);
                 lambda_2(elem) += R2(elem,i,j);
-
-                L1Id(elem,i,j) += lambda_1(elem)/3.;
-                L2Id(elem,i,j) += lambda_2(elem)/3.;
               }
+          }
 
+      for (int i=0; i<Objet_U::dimension; i++)
+        for (int j=0; j<Objet_U::dimension; j++)
+          {
+            if (i==j)
+              {
+                L1Id(elem,i,j) = lambda_1(elem)/3.;
+                L2Id(elem,i,j) = lambda_2(elem)/3.;
+              }
           }
 
       for (int i=0; i<Objet_U::dimension; i++)
@@ -577,8 +583,15 @@ void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
               {
                 lambda_3(elem) += S3(elem,i,j);
                 lambda_4(elem) += R2S(elem,i,j);
+              }
+          }
 
-                L4Id(elem,i,j) += lambda_4(elem)*2./3.;
+      for (int i=0; i<Objet_U::dimension; i++)
+        for (int j=0; j<Objet_U::dimension; j++)
+          {
+            if (i==j)
+              {
+                L4Id(elem,i,j) = lambda_4(elem)*2./3.;
               }
           }
 
@@ -606,8 +619,15 @@ void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
             if (i==j)
               {
                 lambda_5(elem) += R2S2(elem,i,j);
+              }
+          }
 
-                L5Id(elem,i,j) += lambda_5(elem)*2./3.;
+      for (int i=0; i<Objet_U::dimension; i++)
+        for (int j=0; j<Objet_U::dimension; j++)
+          {
+            if (i==j)
+              {
+                L5Id(elem,i,j) = lambda_5(elem)*2./3.;
               }
           }
 
@@ -764,7 +784,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_NL_TBNN_carre(DoubleTab
           for (int j=0; j<Objet_U::dimension; j++)
             {
 # ifdef NON_LINEAR_BIJ
-              resu_NL(elem,i,j) -= abs(g1_(elem)) * T1_etoile_(elem,i,j);
+              resu_NL(elem,i,j) += abs(g1_(elem)) * T1_etoile_(elem,i,j);
 # else
               resu_NL(elem,i,j) = 0;
 # endif
@@ -806,6 +826,8 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
   Re_true.resize(9);
   xpx.resize(9);
   xpz.resize(9);
+  double g1_min=DMAXFLOAT;
+  double g1_max=0;
 
   // Boucle sur les bords pour traiter les conditions aux limites
   for (int n_bord=0; n_bord<domaine_VDF.nb_front_Cl(); n_bord++)
@@ -838,6 +860,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
               dudy_paroi = gij(elem_paroi,0,1,0);
 
               //u_t = sqrt(fabs(nu* dudy_paroi)+1e-20);
+              //TODO: calculate average u_t
               u_t = sqrt(nu* dudy_paroi)+1e-40;
               y_plus_wall[num_face-ndeb] = y_maille_paroi * u_t / nu;
               Re_true [num_face-ndeb] =  u_t / nu;
@@ -882,8 +905,19 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
       resu(elem,2,2) = b[5];
 
       g1(elem) = tbnn->get_g1(resu(elem,0,1), alpha);
+
+      if (g1(elem) < g1_min)
+        {
+          g1_min = g1(elem);
+        }
+      else if (g1(elem) > g1_max)
+        {
+          g1_max = g1(elem);
+        }
     }
 
+  //Cerr << "min(g1)=" << g1_min << finl;
+  //Cerr << "max(g1)=" << g1_max << finl;
   // save predictions and g1 values
   g1_ = g1;
 
@@ -939,6 +973,11 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
 
   const Domaine_VDF& domaine_VDF = le_dom_VDF.valeur();
   const Domaine_Cl_VDF& domaine_Cl_VDF = le_dom_Cl_VDF.valeur();
+  /*
+
+  int  nb_som_face=domaine_VDF.nb_som_face();
+  const  IntTab&  face_sommets=domaine_VDF.face_sommets();
+  */
 
   int nb_elem_tot=domaine_VDF.nb_elem_tot();
   const Champ_Face_VDF& vitesse = ref_cast(Champ_Face_VDF,eqn_NS_->inconnue().valeur() );
@@ -968,7 +1007,6 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
         {
 
           const Front_VF& le_bord = ref_cast(Front_VF,la_cl.frontiere_dis());
-
 
           int ndeb = le_bord.num_premiere_face();
           int nfaces = le_bord.nb_faces();
@@ -1001,29 +1039,56 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
             {
               elem_paroi = le_dom_VDF->face_voisins(num_face, 1);//1 means that I want the elem above the face (which is the bottom paroi so ok)
 
+              //TODO: calculate average u_t
+
+
               if (direction == 1)
                 {
                   // compute y+ from the y wall
-                  y_maille_paroi =le_dom_VDF->xp(elem_paroi, 1) ;
+                  /*
+                  for(int  isom=0;  isom<nb_som_face;  isom++)
+
+                  {
+
+                  int  som1=face_sommets(face,isom);
+                  */
+
+                  y_maille_paroi =le_dom_VDF->xp(elem_paroi, 1) + 1;
                   //Cerr << " y_maille_paroi= "<< y_maille_paroi << finl; VERIFICATO
+
                   dudy_paroi = gij(elem_paroi,0,1,0);
                   u_t = sqrt( abs(nu* dudy_paroi))+1e-40;
+                  /*
+                  Cerr << "We are here" << finl;
+                  Cerr << le_dom_VDF->face_sommets(num_face-ndeb,2) << finl;
+
+                  Cerr << "We are here *2" << finl;
+                  Cerr << num_face-ndeb << " " << z_arret[num_face-ndeb] << finl;
+                  */
+
+                  u_t = 0.01598;
+
+                  //Cerr << "u_tau_y =" << u_t << finl;
 
                   y_plus_wall[num_face-ndeb] = abs(y_maille_paroi) * u_t / nu;
                   Re_true [num_face-ndeb] =  u_t / nu;
-                  x1[num_face-ndeb] =le_dom_VDF->xv(num_face, 0) ;
+                  x1[num_face-ndeb] =le_dom_VDF->xv(num_face, 0) ; // (x1, z1) are (x, z) coordinates of the 1st face above the y=-1 boundary
                   z1[num_face-ndeb] =le_dom_VDF->xv(num_face, 2) ;
                 }
 
               if ( direction == 2 )
                 {
-                  // compute y+ from the z wall
-                  z_maille_paroi =le_dom_VDF->xp(elem_paroi, 2) ;
+                  // compute z+ from the z wall
+                  z_maille_paroi =le_dom_VDF->xp(elem_paroi, 2) + 1;
+                  //Cerr << " z_maille_paroi= "<< z_maille_paroi << finl;
                   dudz_paroi = gij(elem_paroi,0,2,0);
                   u_t = sqrt( abs(nu* dudz_paroi))+1e-40;
+                  u_t = 0.01598;
+
+                  //Cerr << "u_tau_z =" << u_t << finl;
 
                   z_plus_wall[num_face-ndeb] = abs(z_maille_paroi) * u_t / nu;
-                  x2[num_face-ndeb] =le_dom_VDF->xv(num_face, 0) ;
+                  x2[num_face-ndeb] =le_dom_VDF->xv(num_face, 0) ; // (x2, y2) are (x, y) coordinates of the 1st face above the z=-1 boundary
                   y2[num_face-ndeb] =le_dom_VDF->xv(num_face, 1) ;
                 }
 
@@ -1037,14 +1102,20 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
   T.resize(11);
   for (int i=0; i<11; i++)
     T[i].resize(6);
-  T[0][0] = 1./6.;
+  T[0][0] = 1./3.;
   T[0][1] = 0.;
   T[0][2] = 0.;
-  T[0][3] = 1./6.;
+  T[0][3] = -1./6.;
   T[0][4] = 0.;
-  T[0][5] = -1./3.;
-
-
+  T[0][5] = -1./6.;
+  /*
+    for (unsigned int i = 0; i < y_plus_wall.size(); i++)
+      {
+        Cerr << y_plus_wall[i] << finl;
+      }
+    Cerr << "y_plus_wall printed" << finl;
+  */
+  //static bool executed = false;  // Static variable to track execution
   for (int elem=0; elem<nelem_; elem++)
     {
 
@@ -1058,6 +1129,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
         {
           for (int j=i; j<Objet_U::dimension; j++)
             {
+              //Cerr << "T[" << k << "]=T*[" << i << " " << j << "]" << finl;
               T[1][k] = T1_etoile_(elem,i,j);
               T[2][k] = T2_etoile_(elem,i,j);
               T[3][k] = T3_etoile_(elem,i,j);
@@ -1076,6 +1148,9 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
       y_elem =le_dom_VDF->xp(elem, 1) ; // y=1
       z_elem =le_dom_VDF->xp(elem, 2) ; // z=2
 
+      //Cerr << "The coord is " << x_elem << " " << y_elem << " " << z_elem << finl;
+
+
       for (unsigned int i = 0; i < y_plus_wall.size(); i++)
         if ( fabs (x_elem-x1[i]) <1e-8 and fabs (z_elem-z1[i]) <1e-8)
           {
@@ -1092,13 +1167,46 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
             break;
           }
 
-      y_plus = compute_y_plus(y_plus_wall[position_base],y_maille_paroi, y_elem);
-      z_plus = compute_y_plus(z_plus_wall[position_gauche],z_maille_paroi, z_elem);
+      y_plus = compute_y_plus(y_plus_wall[position_base],y_maille_paroi, y_elem+1);
+      z_plus = compute_y_plus(z_plus_wall[position_gauche],z_maille_paroi, z_elem+1	);
       Re_t = compute_Re_t(y_plus_wall[position_base],y_maille_paroi);
-      //Cerr << "Re_t is: "<< Re_t << finl;
 
       // prediction by neural network
       b = tbnn->predict_carre(lambda, T, y_plus, z_plus, Re_t);
+
+
+      // add realizability constraints
+
+      int idx_diag[] = {0,3,5};
+      int idx_nondiag[] = {1,2,4};
+
+      for (int i=0; i<3; i++ )
+        {
+          //Cerr << i << finl;
+          if (b[idx_diag[i]] < -1./3.)
+            {
+              //Cerr << b[idx_diag[i]] << finl;
+              b[idx_diag[i]] = -1./3.;
+              //Cerr << b[idx_diag[i]] << finl;
+            }
+          else if (b[idx_diag[i]] > 2./3.)
+            {
+              b[idx_diag[i]] = 2./3.;
+            }
+        }
+
+      for (int i=0; i<3; i++ )
+        {
+          if (b[idx_nondiag[i]] < -1./2.)
+            {
+              b[idx_nondiag[i]] = -1./2.;
+            }
+          else if (b[idx_nondiag[i]] > 1./2.)
+            {
+              b[idx_nondiag[i]] = 1./2.;
+            }
+        }
+
       resu(elem,0,0) = b[0];
       resu(elem,0,1) = b[1];
       resu(elem,0,2) = b[2];
@@ -1110,7 +1218,53 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
       resu(elem,2,2) = b[5];
 
       g1(elem) = tbnn->get_g1_carre();
+      /*
+      if (!executed)
+        {
+          for (int i = 1; i <= 10; ++i)
+            {
+              for (int j=0; j<6; j++)
+                {
+                  ofstream fileOUT("T" + std::to_string(i) + "_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
+                  fileOUT << T[i][j] << endl; // append "some stuff" to the end of the file
+                  fileOUT.close(); // close the file
+                }
+            }
+
+          ofstream fileOUT1("yp.dat", ios::app); // open filename.txt in append mod
+          fileOUT1 << y_plus << endl; // append "some stuff" to the end of the file
+          fileOUT1.close(); // close the file
+
+          ofstream fileOUT2("zp.dat", ios::app); // open filename.txt in append mod
+          fileOUT2 << z_plus << endl; // append "some stuff" to the end of the file
+          fileOUT2.close(); // close the file
+
+          ofstream fileOUT3("Re_t.dat", ios::app); // open filename.txt in append mod
+          fileOUT3 << Re_t << endl; // append "some stuff" to the end of the file
+          fileOUT3.close(); // close the file
+
+          ofstream fileOUT4("g1.dat", ios::app); // open filename.txt in append mod
+          fileOUT4 << g1(elem) << endl; // append "some stuff" to the end of the file
+          fileOUT4.close(); // close the file
+
+          for (int j=0; j<6; j++)
+            {
+              ofstream fileOUT5("b_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
+              fileOUT5 << b[j] << endl; // append "some stuff" to the end of the file
+              fileOUT5.close(); // close the file
+            }
+          tbnn->output_processed_data();
+
+        }
+        */
+
     }
+  //executed = true;
+  //Cerr << "min(y+)=" << yp_min << " max(y+)=" << yp_max << finl;
+  //Cerr << "min(z+)=" << zp_min << " max(z+)=" << zp_max << finl;
+  //Cerr << "min(Re_tau)=" << Re_t_min << " max(Re_tau)=" << Re_t_max << finl;
+
+  //Cerr << "min(g1)=" << g1_min << " max(g1)=" << g1_max << finl;
 
   // save predictions and g1 values
   g1_ = g1;
@@ -1118,13 +1272,15 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
   DoubleTab& bij_tab = modele_K_Eps_.valeur().get_bij();
   for (int elem=0; elem<nelem_; elem++)
     {
-      bij_tab(elem,0) = resu(elem,0,0);
-      bij_tab(elem,1) = resu(elem,0,1);
-      bij_tab(elem,2) = resu(elem,0,2);
-      bij_tab(elem,3) = resu(elem,1,1);
-      bij_tab(elem,4) = resu(elem,1,2);
-      bij_tab(elem,5) = resu(elem,2,2);
+      bij_tab(elem,0) = resu(elem,0,0); //b11
+      bij_tab(elem,1) = resu(elem,0,1); //b12
+      bij_tab(elem,2) = resu(elem,0,2); //b13
+      bij_tab(elem,3) = resu(elem,1,1); //b22
+      bij_tab(elem,4) = resu(elem,1,2); //b23
+      bij_tab(elem,5) = resu(elem,2,2); //b33
+
     }
+
   bij_ = resu;
 
   return resu;
@@ -1155,7 +1311,10 @@ double Tenseur_Reynolds_Externe_VDF_Face::compute_alpha( double k, double eps, d
 double Tenseur_Reynolds_Externe_VDF_Face::compute_y_plus( double y_plus_wall, double h_maille_paroi, double h_elem)
 {
   double y_plus;
-
+  //Cerr << "Compute y_plus" << finl;
+  //Cerr << "y_plus_wall = " << y_plus_wall << finl;
+  //Cerr << "h_maille_paroi = " << h_maille_paroi << finl;
+  //Cerr << "h_elem = " << h_elem << finl;
   y_plus = abs(y_plus_wall / h_maille_paroi * h_elem);
 
   return y_plus;

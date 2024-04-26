@@ -24,6 +24,7 @@ public:
   vector<double> get_t0() { return _ppNN->get_t0(); };
   inline void canal_plan( bool val );
   inline void canal_carre( bool val);
+  void output_processed_data();
   bool is_canal_plan_;
   bool is_canal_carre_;
 

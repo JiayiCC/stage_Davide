@@ -43,11 +43,6 @@ vector<double> TBNN::predict(double alpha, double y_plus, double Re_t)
 
 vector<double> TBNN::predict_carre(vector<double> lambda, vector<vector<double>> T, double y_plus, double z_plus, double Re_t)
 {
-  //cerr << "Processing in square duct flow way" << endl;
-  //cerr << "lambda is " << lambda[0] << lambda[1] << lambda[2] << lambda[3] << lambda[4] << endl;
-  //cerr << "y_plus is " << y_plus << endl;
-  //cerr << "z_plus is " << z_plus << endl;
-  //cerr << "Re_t is " << Re_t << endl;
   process_lambda(lambda);
   process_T(T);
   process_y_plus(y_plus);
@@ -56,6 +51,16 @@ vector<double> TBNN::predict_carre(vector<double> lambda, vector<vector<double>>
   applyNN();
   process_b();
   return(_b);
+}
+
+void TBNN::output_processed_data()
+{
+    for (int j=0; j<5; j++)
+      {
+        ofstream fileOUT6("pl_" + std::to_string(j+1) + ".dat", ios::app); // open filename.txt in append mod
+        fileOUT6 << _plambda[j] << endl; // append "some stuff" to the end of the file
+        fileOUT6.close(); // close the file
+      }
 }
 
 void TBNN::process_alpha(double alpha)
@@ -87,7 +92,9 @@ void TBNN::process_y_plus(double y_plus)
 	}
 
 	else if (is_canal_carre_){
-		_pp_y_plus = sgn(y_plus) * log( 1 + abs(y_plus) );
+		//cerr << "y_plus = " << y_plus << endl;
+		_pp_y_plus = sgn(y_plus) * log10( 1 + abs(y_plus) );
+		//cerr << "_pp_y_plus = " << _pp_y_plus << endl;
 	}
 	else {
 		cerr << "Mauvaise methode de pre traitement des y_plus" << endl;
@@ -99,7 +106,9 @@ void TBNN::process_y_plus(double y_plus)
 void TBNN::process_z_plus(double z_plus)
 {
 	if (is_canal_carre_){
-		_pp_z_plus = sgn(z_plus) * log( 1 + abs(z_plus) );
+		//cerr << "z_plus = " << z_plus << endl;
+		_pp_z_plus = sgn(z_plus) * log10( 1 + abs(z_plus) );
+		//cerr << "_pp_z_plus = " << _pp_z_plus << endl;
 	}
 	else {
 		cerr << "Mauvaise methode de pre traitement des z_plus" << endl;
@@ -109,6 +118,7 @@ void TBNN::process_z_plus(double z_plus)
 
 void TBNN::process_Re_t(double Re_t)
 {
+  //cerr << "Re_t = " << Re_t << endl;
   switch(_ppNN->get_ppre_tau())
   {
   case MAXN_RET:
@@ -124,21 +134,16 @@ void TBNN::process_Re_t(double Re_t)
     cerr << "Mauvaise methode de pre traitement des Re_t" << endl;
     break;
   }
+  //cerr << "_pp_Re_t = " << _pp_Re_t << endl;
 }
 //
 void TBNN::process_lambda(vector<double> lambda)
 {
-  vector<double> lc;                 // lambda centre
-  vector<double> lcr;                // lambda centre reduit
   size_t nbl = lambda.size();  // nombre d'invariants lambda
-
-  lc.resize(nbl);
-  lcr.resize(nbl);
   _plambda.resize(nbl);
 
-
   for(unsigned int i=0;i<nbl;i++)
-  	  _plambda[i] = sgn(lambda[i]) * log( 1 + abs(lambda[i]) );
+  	  _plambda[i] = sgn(lambda[i]) * log10( 1 + abs(lambda[i]) );
 }
 
 void TBNN::process_T(vector<vector<double>> T)
@@ -312,6 +317,7 @@ void TBNN::applyNN()
 		_g.resize(result_carre[0].to_vector().size());
 		for (unsigned int i =0; i < result_carre[0].to_vector().size(); i++)
 			_g[i] = result_carre[0].to_vector()[i];
+		_g[1] *= -1;
 
 	    // Check the size of the results
 	    if (result_carre[0].to_vector().size() != 6)
