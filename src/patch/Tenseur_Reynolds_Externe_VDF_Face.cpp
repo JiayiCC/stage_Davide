@@ -117,7 +117,7 @@ Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
         case 1 : // "canal_plan"
           {
             tbnn->canal_plan(true);
-            cout << "Using neural network trained on plane channel flow" << endl;
+            //cout << "Using neural network trained on plane channel flow" << endl;
             //Cerr << "The value of is_canal_plan_ bool is: " << static_cast<unsigned int>(f) << finl; // Cast CANAL_PLAN_ to unsigned int
             //Cerr << "The value of is_canal_carre_ bool is: " << static_cast<unsigned int>(tbnn->is_canal_carre_) << finl; // Cast CANAL_PLAN_ to unsigned int
             break;
@@ -125,7 +125,7 @@ Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
         case 2 : // "canal_carre"
           {
             tbnn->canal_carre(true);
-            cout << "Using neural network trained on square duct flow" << endl;
+            //cout << "Using neural network trained on square duct flow" << endl;
             //Cerr << "The value of is_canal_plan_ bool is: " << static_cast<unsigned int>(tbnn->is_canal_plan_) << finl; // Cast CANAL_PLAN_ to unsigned int
             //Cerr << "The value of is_canal_carre_ bool is: " << static_cast<unsigned int>(tbnn->is_canal_carre_) << finl; // Cast CANAL_PLAN_ to unsigned int
             break;
@@ -974,7 +974,8 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
   const Domaine_VDF& domaine_VDF = le_dom_VDF.valeur();
   const Domaine_Cl_VDF& domaine_Cl_VDF = le_dom_Cl_VDF.valeur();
   /*
-
+  const Domaine& le_domaine = le_dom_VDF->domaine();
+  const DoubleTab& coord_sommets = le_domaine.coord_sommets();
   int  nb_som_face=domaine_VDF.nb_som_face();
   const  IntTab&  face_sommets=domaine_VDF.face_sommets();
   */
@@ -1046,26 +1047,21 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
                 {
                   // compute y+ from the y wall
                   /*
-                  for(int  isom=0;  isom<nb_som_face;  isom++)
+                    int face=le_bord.num_face(num_face);
+                    for(int isom=0;  isom<nb_som_face;  isom++)
 
-                  {
+                      {
+                        int som1=face_sommets(face,isom);
+                        Cerr << "Nb of sommet=" << som1 << " Coordinnates: " << coord_sommets(som1, 0) << " " << coord_sommets(som1, 1) << " " << coord_sommets(som1, 2) << finl;
 
-                  int  som1=face_sommets(face,isom);
-                  */
+                      }
+                      */
 
                   y_maille_paroi =le_dom_VDF->xp(elem_paroi, 1) + 1;
                   //Cerr << " y_maille_paroi= "<< y_maille_paroi << finl; VERIFICATO
 
                   dudy_paroi = gij(elem_paroi,0,1,0);
                   u_t = sqrt( abs(nu* dudy_paroi))+1e-40;
-                  /*
-                  Cerr << "We are here" << finl;
-                  Cerr << le_dom_VDF->face_sommets(num_face-ndeb,2) << finl;
-
-                  Cerr << "We are here *2" << finl;
-                  Cerr << num_face-ndeb << " " << z_arret[num_face-ndeb] << finl;
-                  */
-
                   u_t = 0.01598;
 
                   //Cerr << "u_tau_y =" << u_t << finl;

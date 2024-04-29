@@ -333,7 +333,7 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
     }
   else
     {
-      Cerr << "non_prepare=0" << finl;
+      //Cerr << "non_prepare=0" << finl;
       for (int i=0; i<n; i++)
         {
           if (tab_K_Eps(i,1) <= LeEPS_MIN)
