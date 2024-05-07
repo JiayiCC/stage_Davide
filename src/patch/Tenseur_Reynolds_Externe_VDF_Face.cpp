@@ -944,7 +944,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
   double z_maille_paroi=-1;
   vector<vector<double>> T;
   DoubleTab g1(nelem_);
-  double u_t;
+  double u_t = 0., sum_surface=0.;
 
   double dudy_paroi, dudz_paroi ;
 
@@ -970,32 +970,82 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
   double x_elem, y_elem, z_elem;
   int position_base = -1;
   int position_gauche = -1;
+  int ori;
 
   const Domaine_VDF& domaine_VDF = le_dom_VDF.valeur();
   const Domaine_Cl_VDF& domaine_Cl_VDF = le_dom_Cl_VDF.valeur();
-  /*
-  const Domaine& le_domaine = le_dom_VDF->domaine();
-  const DoubleTab& coord_sommets = le_domaine.coord_sommets();
-  int  nb_som_face=domaine_VDF.nb_som_face();
-  const  IntTab&  face_sommets=domaine_VDF.face_sommets();
-  */
+  const IntTab& face_voisins = domaine_VDF.face_voisins();
+  const IntVect& orientation = domaine_VDF.orientation();
+  const DoubleTab& xv = domaine_VDF.xv();
+  const DoubleTab& xp = domaine_VDF.xp();
+  const DoubleVect& face_surfaces = domaine_VDF.face_surfaces();
+  DoubleTab y_plus_wall, xp_paroi;
+
+  y_plus_wall.copy(xv,Array_base::NOCOPY_NOINIT);
+  y_plus_wall = 0.;
+
+  xp_paroi.copy(xv,Array_base::NOCOPY_NOINIT);
+  xp_paroi = 0.;
 
   int nb_elem_tot=domaine_VDF.nb_elem_tot();
   const Champ_Face_VDF& vitesse = ref_cast(Champ_Face_VDF,eqn_NS_->inconnue().valeur() );
   assert (vitesse.valeurs().line_size() == 1);
-  vector<double> y_plus_wall, z_plus_wall, x1, z1, x2, y2, Re_true;
-
-  //const DoubleTab& vitesse_faces = eqn_NS_->inconnue().valeurs() ;
-  //double vitesse_sx, vitesse_dx;
 
   DoubleTab gij(nb_elem_tot,dimension,dimension, vitesse.valeurs().line_size());
   ref_cast_non_const(Champ_Face_VDF,vitesse).calcul_duidxj( vitesse.valeurs(),gij,domaine_Cl_VDF );
 
   double nu = eqn_NS_->fluide().viscosite_cinematique().valeurs()[0];
 
-  int direction = -1;
+  //std::cout << "nb_bords_total = " << domaine_VDF.domaine().nb_bords()  << std::endl;
 
-  // Boucle sur les bords pour traiter les conditions aux limites
+  // Boucle sur les bords pour calculer u_tau
+  for (int n_bord=0; n_bord<domaine_VDF.domaine().nb_bords(); n_bord++)
+    {
+      const Cond_lim& la_cl = domaine_Cl_VDF.les_conditions_limites(n_bord);
+
+      int elem_paroi;
+      if ( (sub_type(Dirichlet,la_cl.valeur()))   ||  (sub_type(Dirichlet_homogene,la_cl.valeur())))
+        {
+
+          const Front_VF& le_bord = ref_cast(Front_VF,la_cl.frontiere_dis());
+
+
+          int ndeb = le_bord.num_premiere_face();
+          int nfaces = le_bord.nb_faces_tot();
+          int nfin = ndeb + nfaces;
+
+          for (int num_face=ndeb; num_face<nfin; num_face++)
+            {
+
+              if (face_voisins(num_face, 0) != -1)
+                elem_paroi = face_voisins(num_face, 0);
+              else
+                elem_paroi = face_voisins(num_face, 1);
+
+              ori = orientation(num_face);
+
+              if (ori == 1)
+                {
+                  dudy_paroi = gij(elem_paroi,0,1,0);
+                  u_t += sqrt( abs(nu* dudy_paroi))*face_surfaces(num_face);
+                  sum_surface += face_surfaces(num_face);
+                }
+
+              if ( ori == 2 )
+                {
+                  dudz_paroi = gij(elem_paroi,0,2,0);
+                  u_t += sqrt( abs(nu* dudz_paroi))*face_surfaces(num_face);
+                  sum_surface += face_surfaces(num_face);
+                }
+            }
+        }
+    }
+
+  u_t = mp_sum(u_t);
+  u_t = u_t / mp_sum(sum_surface);
+
+  //std::cout << "u_t " << u_t << std::endl;
+
   for (int n_bord=0; n_bord<domaine_VDF.domaine().nb_bords(); n_bord++)
     {
       // Si face de Dirichlet (les parois) on calcule y+ ou z+
@@ -1003,94 +1053,93 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
       const Cond_lim& la_cl = domaine_Cl_VDF.les_conditions_limites(n_bord);
 
       int elem_paroi;
-
       if ( (sub_type(Dirichlet,la_cl.valeur()))   ||  (sub_type(Dirichlet_homogene,la_cl.valeur())))
         {
 
           const Front_VF& le_bord = ref_cast(Front_VF,la_cl.frontiere_dis());
 
           int ndeb = le_bord.num_premiere_face();
-          int nfaces = le_bord.nb_faces();
+          int nfaces = le_bord.nb_faces_tot();
           int nfin = ndeb + nfaces;
-          //Cout << "ndeb " << ndeb << finl;
 
-          elem_paroi = le_dom_VDF->face_voisins(ndeb, 1);
-          double coordy =le_dom_VDF->xp(elem_paroi, 1);
-          double coordz =le_dom_VDF->xp(elem_paroi, 2);
-
-          if (fabs(coordy - le_dom_VDF->xv(ndeb, 1)) < 1e-8 )
+          for (int num_face=ndeb; num_face<nfin; num_face++)
             {
-              direction = 2;
-              z_plus_wall.resize(nfaces);
-              x2.resize(nfaces);
-              y2.resize(nfaces);
-              //Cout << "nfaces direction 2 " << nfaces << finl;
-            }
-          if (fabs(coordz - le_dom_VDF->xv(ndeb, 2)) < 1e-8 )
-            {
-              direction = 1;
-              y_plus_wall.resize(nfaces);
-              Re_true.resize(nfaces);
-              x1.resize(nfaces);
-              z1.resize(nfaces);
-              //Cout << "nfaces direction 1 " << nfaces << finl;
-            }
 
-          for ( int num_face=ndeb; num_face<nfin; num_face++)
-            {
-              elem_paroi = le_dom_VDF->face_voisins(num_face, 1);//1 means that I want the elem above the face (which is the bottom paroi so ok)
+              if (face_voisins(num_face, 0) != -1)
+                elem_paroi = face_voisins(num_face, 0);
+              else
+                elem_paroi = face_voisins(num_face, 1);
 
-              //TODO: calculate average u_t
+              ori = orientation(num_face);
 
-
-              if (direction == 1)
+              if (ori == 1)
                 {
                   // compute y+ from the y wall
-                  /*
-                    int face=le_bord.num_face(num_face);
-                    for(int isom=0;  isom<nb_som_face;  isom++)
-
-                      {
-                        int som1=face_sommets(face,isom);
-                        Cerr << "Nb of sommet=" << som1 << " Coordinnates: " << coord_sommets(som1, 0) << " " << coord_sommets(som1, 1) << " " << coord_sommets(som1, 2) << finl;
-
-                      }
-                      */
-
-                  y_maille_paroi =le_dom_VDF->xp(elem_paroi, 1) + 1;
-                  //Cerr << " y_maille_paroi= "<< y_maille_paroi << finl; VERIFICATO
-
-                  dudy_paroi = gij(elem_paroi,0,1,0);
-                  u_t = sqrt( abs(nu* dudy_paroi))+1e-40;
-                  u_t = 0.01598;
-
-                  //Cerr << "u_tau_y =" << u_t << finl;
-
-                  y_plus_wall[num_face-ndeb] = abs(y_maille_paroi) * u_t / nu;
-                  Re_true [num_face-ndeb] =  u_t / nu;
-                  x1[num_face-ndeb] =le_dom_VDF->xv(num_face, 0) ; // (x1, z1) are (x, z) coordinates of the 1st face above the y=-1 boundary
-                  z1[num_face-ndeb] =le_dom_VDF->xv(num_face, 2) ;
+                  y_maille_paroi = xp(elem_paroi, 1) + 1;
+                  y_plus_wall(num_face,1) = abs(y_maille_paroi) * u_t / nu;
+                  xp_paroi(num_face,1) = y_maille_paroi; // (x1, z1) are (x, z) coordinates of each face above the y=-1 boundary
                 }
 
-              if ( direction == 2 )
+              if ( ori == 2 )
                 {
                   // compute z+ from the z wall
-                  z_maille_paroi =le_dom_VDF->xp(elem_paroi, 2) + 1;
-                  //Cerr << " z_maille_paroi= "<< z_maille_paroi << finl;
-                  dudz_paroi = gij(elem_paroi,0,2,0);
-                  u_t = sqrt( abs(nu* dudz_paroi))+1e-40;
-                  u_t = 0.01598;
-
-                  //Cerr << "u_tau_z =" << u_t << finl;
-
-                  z_plus_wall[num_face-ndeb] = abs(z_maille_paroi) * u_t / nu;
-                  x2[num_face-ndeb] =le_dom_VDF->xv(num_face, 0) ; // (x2, y2) are (x, y) coordinates of the 1st face above the z=-1 boundary
-                  y2[num_face-ndeb] =le_dom_VDF->xv(num_face, 1) ;
+                  z_maille_paroi = xp(elem_paroi, 2) + 1;
+                  y_plus_wall(num_face,2) = abs(z_maille_paroi) * u_t / nu;
+                  xp_paroi(num_face,2) = z_maille_paroi; // (x2, y2) are (x, y) coordinates of each face above the z=-1 boundary
                 }
 
             }
         }
     }
+
+  int nb_joints = domaine_VDF.domaine().nb_joints();
+
+  // Boucle sur les joints pour remplir y+ et z+
+  for (int njoint=0; njoint<nb_joints; njoint++)
+    {
+//      std::cout << "nbjoint=" << njoint << std::endl;
+      const Joint& joint = domaine_VDF.domaine().joint(njoint);
+      const IntTab& indices_faces_joint = joint.joint_item(Joint::FACE).renum_items_communs();
+      const int nfaces = indices_faces_joint.dimension(0);
+
+      for (int j = 0; j < nfaces; j++)
+        {
+          int num_face_joint = indices_faces_joint(j, 1);
+          double xjoint = xv(num_face_joint, 0) ;
+          double yjoint = xv(num_face_joint, 1) ;
+          double zjoint = xv(num_face_joint, 2) ;
+
+          ori = orientation(num_face_joint);
+
+          for (int n_bord=0; n_bord<domaine_VDF.nb_front_Cl(); n_bord++)
+            {
+              const Cond_lim& la_cl = domaine_Cl_VDF.les_conditions_limites(n_bord);
+              if ( (sub_type(Dirichlet,la_cl.valeur()))   ||  (sub_type(Dirichlet_homogene,la_cl.valeur())))
+                {
+                  const Front_VF& le_bord = ref_cast(Front_VF,la_cl.frontiere_dis());
+                  int ndeb = le_bord.num_premiere_face();
+                  int nfin = ndeb + le_bord.nb_faces();
+
+                  for ( int num_face=ndeb; num_face<nfin; num_face++)
+                    {
+                      if (ori==1 and fabs(xjoint-xv(num_face,0)) <1e-8 and fabs(zjoint-xv(num_face,2)) <1e-8)
+                        {
+                          y_plus_wall(num_face_joint,1) = y_plus_wall(num_face,1);
+                          xp_paroi(num_face_joint,1) = xp_paroi(num_face,1);
+                        }
+                      if (ori==2 and fabs(xjoint-xv(num_face,0)) <1e-8 and fabs(yjoint-xv(num_face,1)) <1e-8)
+                        {
+                          y_plus_wall(num_face_joint,2) = y_plus_wall(num_face,2);
+                          xp_paroi(num_face_joint,2) = xp_paroi(num_face,2);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+  MD_Vector_tools::echange_espace_virtuel(y_plus_wall, MD_Vector_tools::EV_SOMME_ECHANGE);
+  MD_Vector_tools::echange_espace_virtuel(xp_paroi, MD_Vector_tools::EV_SOMME_ECHANGE);
 
   //
   //  init of lambda and T arrays
@@ -1104,13 +1153,8 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
   T[0][3] = -1./6.;
   T[0][4] = 0.;
   T[0][5] = -1./6.;
-  /*
-    for (unsigned int i = 0; i < y_plus_wall.size(); i++)
-      {
-        Cerr << y_plus_wall[i] << finl;
-      }
-    Cerr << "y_plus_wall printed" << finl;
-  */
+
+
   //static bool executed = false;  // Static variable to track execution
   for (int elem=0; elem<nelem_; elem++)
     {
@@ -1140,39 +1184,69 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
             }
         }
 
-      x_elem =le_dom_VDF->xp(elem, 0) ; // x=0
-      y_elem =le_dom_VDF->xp(elem, 1) ; // y=1
-      z_elem =le_dom_VDF->xp(elem, 2) ; // z=2
-
-      //Cerr << "The coord is " << x_elem << " " << y_elem << " " << z_elem << finl;
+      x_elem = xp(elem, 0) ; // x=0
+      y_elem = xp(elem, 1) ; // y=1
+      z_elem = xp(elem, 2) ; // z=2
 
 
-      for (unsigned int i = 0; i < y_plus_wall.size(); i++)
-        if ( fabs (x_elem-x1[i]) <1e-8 and fabs (z_elem-z1[i]) <1e-8)
-          {
-            position_base = i;
-            //Cout << "position_base " << position_base << finl;
-            break;
-          }
+      position_base = -1;
+      position_gauche = -1;
 
-      for (unsigned int i = 0; i < z_plus_wall.size(); i++)
-        if ( fabs (x_elem-x2[i]) <1e-8 and fabs (y_elem-y2[i]) <1e-8)
-          {
-            position_gauche = i;
-            //Cout << "position_gauche " << position_gauche << finl;
-            break;
-          }
+      for (int n_bord=0; n_bord<domaine_VDF.nb_front_Cl(); n_bord++)
+        {
+          const Cond_lim& la_cl = domaine_Cl_VDF.les_conditions_limites(n_bord);
 
-      y_plus = compute_y_plus(y_plus_wall[position_base],y_maille_paroi, y_elem+1);
-      z_plus = compute_y_plus(z_plus_wall[position_gauche],z_maille_paroi, z_elem+1	);
-      Re_t = compute_Re_t(y_plus_wall[position_base],y_maille_paroi);
+          if ( (sub_type(Dirichlet,la_cl.valeur()))   ||  (sub_type(Dirichlet_homogene,la_cl.valeur())))
+            {
+              const Front_VF& le_bord = ref_cast(Front_VF,la_cl.frontiere_dis());
+              int ndeb = le_bord.num_premiere_face();
+              int nfin = ndeb + le_bord.nb_faces();
+
+              for ( int num_face=ndeb; num_face<nfin; num_face++)
+                {
+                  ori = orientation(num_face);
+                  if (ori==1 and fabs(x_elem-xv(num_face,0)) <1e-8 and fabs(z_elem-xv(num_face,2)) <1e-8)
+                    position_base = num_face;
+                  if (ori==2 and fabs(x_elem-xv(num_face,0)) <1e-8 and fabs(y_elem-xv(num_face,1)) <1e-8)
+                    position_gauche = num_face;
+                }
+            }
+        }
+
+      if (position_base==-1 or position_gauche==-1)
+        {
+          for (int njoint=0; njoint<nb_joints; njoint++)
+            {
+
+              const Joint& joint = domaine_VDF.domaine().joint(njoint);
+              const IntTab& indices_faces_joint = joint.joint_item(Joint::FACE).renum_items_communs();
+              const int nfaces = indices_faces_joint.dimension(0);
+
+
+              for (int j = 0; j < nfaces; j++)
+                {
+                  int num_face = indices_faces_joint(j, 1);
+                  ori = orientation(num_face);
+                  if (ori==1 and fabs(x_elem-xv(num_face,0)) <1e-8 and fabs(z_elem-xv(num_face,2)) <1e-8)
+                    position_base = num_face;
+                  if (ori==2 and fabs(x_elem-xv(num_face,0)) <1e-8 and fabs(y_elem-xv(num_face,1)) <1e-8)
+                    position_gauche = num_face;
+                }
+            }
+        }
+
+      assert(position_base!=-1 && position_gauche!=-1);
+      assert(y_plus_wall(position_base,1) > 0. && y_plus_wall(position_gauche,2) > 0.);
+      y_maille_paroi = xp_paroi(position_base,1);
+      z_maille_paroi = xp_paroi(position_gauche,2);
+      y_plus = compute_y_plus(y_plus_wall(position_base,1),y_maille_paroi, y_elem+1);
+      z_plus = compute_y_plus(y_plus_wall(position_gauche,2),z_maille_paroi, z_elem+1	);
+      Re_t = compute_Re_t(y_plus_wall(position_base,1),y_maille_paroi);
 
       // prediction by neural network
       b = tbnn->predict_carre(lambda, T, y_plus, z_plus, Re_t);
 
-
       // add realizability constraints
-
       int idx_diag[] = {0,3,5};
       int idx_nondiag[] = {1,2,4};
 
@@ -1181,9 +1255,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
           //Cerr << i << finl;
           if (b[idx_diag[i]] < -1./3.)
             {
-              //Cerr << b[idx_diag[i]] << finl;
               b[idx_diag[i]] = -1./3.;
-              //Cerr << b[idx_diag[i]] << finl;
             }
           else if (b[idx_diag[i]] > 2./3.)
             {
@@ -1214,53 +1286,58 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
       resu(elem,2,2) = b[5];
 
       g1(elem) = tbnn->get_g1_carre();
-      /*
-      if (!executed)
-        {
-          for (int i = 1; i <= 10; ++i)
-            {
-              for (int j=0; j<6; j++)
-                {
-                  ofstream fileOUT("T" + std::to_string(i) + "_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
-                  fileOUT << T[i][j] << endl; // append "some stuff" to the end of the file
-                  fileOUT.close(); // close the file
-                }
-            }
 
-          ofstream fileOUT1("yp.dat", ios::app); // open filename.txt in append mod
-          fileOUT1 << y_plus << endl; // append "some stuff" to the end of the file
-          fileOUT1.close(); // close the file
+//      if (!executed)
+//        {
+//          /*
+//            for (int i = 1; i <= 10; ++i)
+//              {
+//                for (int j=0; j<6; j++)
+//                  {
+//                    ofstream fileOUT("T" + std::to_string(i) + "_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
+//                    fileOUT << T[i][j] << endl; // append "some stuff" to the end of the file
+//                    fileOUT.close(); // close the file
+//                  }
+//              }
+//            for (int j=0; j<5; j++)
+//              {
+//                ofstream fileOUT0("l_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
+//                fileOUT0 << lambda[j] << endl; // append "some stuff" to the end of the file
+//                fileOUT0.close(); // close the file
+//              }
+//          */
+//          ofstream fileOUT1("yp.dat", ios::app); // open filename.txt in append mod
+//          fileOUT1 << y_plus << endl; // append "some stuff" to the end of the file
+//          fileOUT1.close(); // close the file
+//
+//          ofstream fileOUT2("zp.dat", ios::app); // open filename.txt in append mod
+//          fileOUT2 << z_plus << endl; // append "some stuff" to the end of the file
+//          fileOUT2.close(); // close the file
+//          /*
+//          ofstream fileOUT3("Re_t.dat", ios::app); // open filename.txt in append mod
+//          fileOUT3 << Re_t << endl; // append "some stuff" to the end of the file
+//          fileOUT3.close(); // close the file
+//
+//          ofstream fileOUT4("g1.dat", ios::app); // open filename.txt in append mod
+//          fileOUT4 << g1(elem) << endl; // append "some stuff" to the end of the file
+//          fileOUT4.close(); // close the file
+//
+//          for (int j=0; j<6; j++)
+//            {
+//              ofstream fileOUT5("b_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
+//              fileOUT5 << b[j] << endl; // append "some stuff" to the end of the file
+//              fileOUT5.close(); // close the file
+//            }
+//
+//          tbnn->output_processed_data();
+//          */
+//
+//        }
 
-          ofstream fileOUT2("zp.dat", ios::app); // open filename.txt in append mod
-          fileOUT2 << z_plus << endl; // append "some stuff" to the end of the file
-          fileOUT2.close(); // close the file
 
-          ofstream fileOUT3("Re_t.dat", ios::app); // open filename.txt in append mod
-          fileOUT3 << Re_t << endl; // append "some stuff" to the end of the file
-          fileOUT3.close(); // close the file
-
-          ofstream fileOUT4("g1.dat", ios::app); // open filename.txt in append mod
-          fileOUT4 << g1(elem) << endl; // append "some stuff" to the end of the file
-          fileOUT4.close(); // close the file
-
-          for (int j=0; j<6; j++)
-            {
-              ofstream fileOUT5("b_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
-              fileOUT5 << b[j] << endl; // append "some stuff" to the end of the file
-              fileOUT5.close(); // close the file
-            }
-          tbnn->output_processed_data();
-
-        }
-        */
 
     }
   //executed = true;
-  //Cerr << "min(y+)=" << yp_min << " max(y+)=" << yp_max << finl;
-  //Cerr << "min(z+)=" << zp_min << " max(z+)=" << zp_max << finl;
-  //Cerr << "min(Re_tau)=" << Re_t_min << " max(Re_tau)=" << Re_t_max << finl;
-
-  //Cerr << "min(g1)=" << g1_min << " max(g1)=" << g1_max << finl;
 
   // save predictions and g1 values
   g1_ = g1;
@@ -1307,10 +1384,6 @@ double Tenseur_Reynolds_Externe_VDF_Face::compute_alpha( double k, double eps, d
 double Tenseur_Reynolds_Externe_VDF_Face::compute_y_plus( double y_plus_wall, double h_maille_paroi, double h_elem)
 {
   double y_plus;
-  //Cerr << "Compute y_plus" << finl;
-  //Cerr << "y_plus_wall = " << y_plus_wall << finl;
-  //Cerr << "h_maille_paroi = " << h_maille_paroi << finl;
-  //Cerr << "h_elem = " << h_elem << finl;
   y_plus = abs(y_plus_wall / h_maille_paroi * h_elem);
 
   return y_plus;

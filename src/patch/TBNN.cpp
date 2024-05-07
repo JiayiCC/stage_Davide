@@ -300,34 +300,18 @@ void TBNN::applyNN()
 
 		//_ppNN->AllDisplay_carre();
 
+
+		// Sequential predictions
 		// construct input vector
 		vector<float> input_vector(_plambda.begin(),_plambda.end());
 		input_vector.push_back(static_cast<float>(_pp_y_plus));
 		input_vector.push_back(static_cast<float>(_pp_z_plus));
 		input_vector.push_back(static_cast<float>(_pp_Re_t));
-		/*
-		// Assuming 'input_vector' is a vector of floats or doubles
-
-		std::vector<float> input_vector = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f};
-
-		// Create a tensor from the input_vector
-		fdeep::tensor input_tensor(fdeep::tensor_shape(static_cast<std::size_t>(8)), input_vector);
-
-		// Create a vector of tensors (single element in this case)
-		std::vector<fdeep::tensor> multi_inputs = {input_tensor};
-
-		// Create a vector of vector of tensors (required format)
-		std::vector<std::vector<fdeep::tensor>> multi_inputs_batch = {multi_inputs};
-		*/
-	    // resize output vector
-		size_t nbt = _ppNN->get_numT();
-		_g.resize(nbt);
-
-		// on fait la prediction a l'aide du reseau de neurones
 		const auto result_carre = _model_uploaded->predict({ fdeep::tensor(fdeep::tensor_shape(static_cast<std::size_t>(8)), input_vector) });
-		//const auto result_carre = _model_uploaded->predict_multi(multi_inputs_batch, true);
+
 		//std::cout << fdeep::show_tensors(result_carre) << std::endl;
 		// on stocke les sorties dans _g
+
 		_g.resize(result_carre[0].to_vector().size());
 		for (unsigned int i =0; i < result_carre[0].to_vector().size(); i++)
 			_g[i] = result_carre[0].to_vector()[i];
@@ -338,6 +322,52 @@ void TBNN::applyNN()
 	    {
 	        cerr << "Bad treatment of model.predict" << endl;
 	    }
+
+		/*
+		// Parallel predictions
+
+		vector<float> input_vector(_plambda.begin(),_plambda.end());
+		input_vector.push_back(static_cast<float>(_pp_y_plus));
+		input_vector.push_back(static_cast<float>(_pp_z_plus));
+		input_vector.push_back(static_cast<float>(_pp_Re_t));
+
+		//std::vector<float> input_vector = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f};
+
+		// Create a tensor from the input_vector
+		fdeep::tensor input_tensor(fdeep::tensor_shape(static_cast<std::size_t>(8)), input_vector);
+
+		// Create a vector of tensors (single element in this case)
+		std::vector<fdeep::tensor> multi_inputs = {input_tensor};
+
+		// Create a vector of vector of tensors (required format)
+		std::vector<std::vector<fdeep::tensor>> multi_inputs_batch = {multi_inputs};
+
+		// on fait la prediction a l'aide du reseau de neurones
+
+		const auto result_carre = _model_uploaded->predict_multi(multi_inputs_batch, true);
+
+		// Display each tensor in the result batch
+		for (const auto& batch : result_carre)
+		{
+		    for (const auto& tensor : batch)
+		    {
+		        std::cout << fdeep::show_tensor(tensor) << std::endl;
+		    }
+		}
+
+		cerr << "fin de batch" << endl;
+		//cerr << "size of g" << result_carre[0][0].shape().volume() << endl;
+
+
+
+		_g.resize(result_carre[0][0].shape().volume());
+
+		for (std::size_t i = 0; i < _g.size(); ++i)
+			_g[i] = result_carre[0][0].to_vector()[i];
+		_g[1] *= -1;
+
+		*/
+
 	}
 
 }
