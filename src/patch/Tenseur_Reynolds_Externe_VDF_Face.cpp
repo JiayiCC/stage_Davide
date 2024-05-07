@@ -1043,7 +1043,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
 
   u_t = mp_sum(u_t);
   u_t = u_t / mp_sum(sum_surface);
-
+  u_t = 1.5980385955900369005e-2;
   //std::cout << "u_t " << u_t << std::endl;
 
   for (int n_bord=0; n_bord<domaine_VDF.domaine().nb_bords(); n_bord++)
@@ -1155,7 +1155,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
   T[0][5] = -1./6.;
 
 
-  //static bool executed = false;  // Static variable to track execution
+//  static bool executed = false;  // Static variable to track execution
   for (int elem=0; elem<nelem_; elem++)
     {
 
@@ -1337,7 +1337,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
 
 
     }
-  //executed = true;
+//  executed = true;
 
   // save predictions and g1 values
   g1_ = g1;
