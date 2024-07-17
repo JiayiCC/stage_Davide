@@ -43,6 +43,7 @@ vector<double> TBNN::predict(double alpha, double y_plus, double Re_t)
 
 vector<double> TBNN::predict_carre(vector<double> lambda, vector<vector<double>> T, double y_plus, double z_plus, double Re_t)
 {
+  cout << "calling NN " << endl;
   process_lambda(lambda);
   process_T(T);
   process_y_plus(y_plus);
@@ -311,14 +312,15 @@ void TBNN::applyNN()
 
 		_g.resize(result_carre[0].to_vector().size());
 		for (unsigned int i =0; i < result_carre[0].to_vector().size(); i++)
-			_g[i] = result_carre[0].to_vector()[i];
+			_g[i] = result_carre[0].to_vector()[i] * 100.;
 		_g[1] *= -1;
+//		_g[3] = -13;
 
-	    // Check the size of the results
-	    if (result_carre[0].to_vector().size() != 6)
-	    {
-	        cerr << "Bad treatment of model.predict" << endl;
-	    }
+//	    // Check the size of the results
+//	    if (result_carre[0].to_vector().size() != 6)
+//	    {
+//	        cerr << "Bad treatment of model.predict" << endl;
+//	    }
 
 	}
 

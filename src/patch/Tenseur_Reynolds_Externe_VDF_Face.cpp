@@ -50,7 +50,6 @@
 #include <algorithm>
 #include <fstream>
 using namespace std;
-//#define NON_LINEAR_BIJ
 
 Implemente_instanciable_sans_constructeur_ni_destructeur(Tenseur_Reynolds_Externe_VDF_Face,"Tenseur_Reynolds_Externe_VDF_Face",Source_base);
 
@@ -75,10 +74,6 @@ Sortie& Tenseur_Reynolds_Externe_VDF_Face::printOn(Sortie& s ) const
   return s << que_suis_je() ;
 }
 
-
-//// readOn
-//
-
 Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
 {
   Motcle accolade_ouverte("{");
@@ -92,11 +87,18 @@ Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
       Cerr << "On attendait { pour commencer a lire les constantes de Tenseur_Reynolds_Externe" << finl;
       exit();
     }
-  Motcles les_mots(3);
+  Motcles les_mots(9);
   {
     les_mots[0] = "nom_fichier";
     les_mots[1] = "canal_plan";
     les_mots[2] = "canal_carre";
+    les_mots[3] = "0";
+    les_mots[4] = "1";
+    les_mots[5] = "2";
+    les_mots[6] = "3";
+    les_mots[7] = "4";
+    les_mots[8] = "5";
+
   }
   is >> motlu;
   //Cerr << "We are here" << finl;
@@ -113,21 +115,44 @@ Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
             readNN();
             break;
           }
-
         case 1 : // "canal_plan"
           {
             tbnn->canal_plan(true);
-            //cout << "Using neural network trained on plane channel flow" << endl;
-            //Cerr << "The value of is_canal_plan_ bool is: " << static_cast<unsigned int>(f) << finl; // Cast CANAL_PLAN_ to unsigned int
-            //Cerr << "The value of is_canal_carre_ bool is: " << static_cast<unsigned int>(tbnn->is_canal_carre_) << finl; // Cast CANAL_PLAN_ to unsigned int
             break;
           }
         case 2 : // "canal_carre"
           {
             tbnn->canal_carre(true);
-            //cout << "Using neural network trained on square duct flow" << endl;
-            //Cerr << "The value of is_canal_plan_ bool is: " << static_cast<unsigned int>(tbnn->is_canal_plan_) << finl; // Cast CANAL_PLAN_ to unsigned int
-            //Cerr << "The value of is_canal_carre_ bool is: " << static_cast<unsigned int>(tbnn->is_canal_carre_) << finl; // Cast CANAL_PLAN_ to unsigned int
+            break;
+          }
+        case 3 :
+          {
+            T_list.push_back(0);
+            break;
+          }
+        case 4 :
+          {
+            T_list.push_back(1);
+            break;
+          }
+        case 5 :
+          {
+            T_list.push_back(2);
+            break;
+          }
+        case 6 :
+          {
+            T_list.push_back(3);
+            break;
+          }
+        case 7 :
+          {
+            T_list.push_back(4);
+            break;
+          }
+        case 8 :
+          {
+            T_list.push_back(5);
             break;
           }
         default :
@@ -187,7 +212,6 @@ void Tenseur_Reynolds_Externe_VDF_Face::associer_domaines(const Domaine_dis& dom
 
   nelem_ = le_dom_VDF.valeur().nb_elem();
 }
-
 
 void Tenseur_Reynolds_Externe_VDF_Face::ajouter_blocs(matrices_t matrices, DoubleTab& secmem, const tabs_t& semi_impl) const
 {
@@ -379,11 +403,18 @@ void Tenseur_Reynolds_Externe_VDF_Face::mettre_a_jour(double temps)
     }
 
   DoubleTab tenseur_reynolds_elements(nb_elem_tot,dimension,dimension);
-  tenseur_reynolds_elements = 0;
-
-  Calcul_Tenseur_Reynolds_NL( tenseur_reynolds_elements );
-
   DoubleTab tenseur_reynolds_faces(nb_faces_tot,dimension,dimension);
+
+  static bool executed = false;  // Static variable to track execution
+  if (! executed)
+    {
+      tenseur_reynolds_elements = 0;
+
+      Calcul_Tenseur_Reynolds_NL( tenseur_reynolds_elements );
+    }
+
+  executed = true;
+
   tenseur_reynolds_faces = 0.;
 
   for (int fac=0; fac<nb_faces_tot; fac++)
@@ -470,11 +501,12 @@ void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
   DoubleTab gij(nb_elem_tot,dimension,dimension, vitesse.valeurs().line_size());
   ref_cast_non_const(Champ_Face_VDF,vitesse).calcul_duidxj( vitesse.valeurs(),gij,domaine_Cl_VDF );
 
-  DoubleTab lambda_1(nb_elem_tot);
-  DoubleTab lambda_2(nb_elem_tot);
-  DoubleTab lambda_3(nb_elem_tot);
-  DoubleTab lambda_4(nb_elem_tot);
-  DoubleTab lambda_5(nb_elem_tot);
+
+  DoubleTab& lambda_1 = modele_K_Eps_.valeur().get_l1();
+  DoubleTab& lambda_2 = modele_K_Eps_.valeur().get_l2();
+  DoubleTab& lambda_3 = modele_K_Eps_.valeur().get_l3();
+  DoubleTab& lambda_4 = modele_K_Eps_.valeur().get_l4();
+  DoubleTab& lambda_5 = modele_K_Eps_.valeur().get_l5();
 
   const DoubleTab& K_eps = eqn_transport_K_Eps_->inconnue().valeurs();
 
@@ -507,6 +539,8 @@ void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
   DoubleTab L4Id(nb_elem_tot,dimension,dimension);
   DoubleTab L5Id(nb_elem_tot,dimension,dimension);
 
+  DoubleTab tab_zero(nb_elem_tot,dimension,dimension);
+
   for (int elem=0; elem<nelem_; elem++)
     {
 
@@ -521,6 +555,7 @@ void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
       for (int i=0; i<Objet_U::dimension; i++)
         for (int j=0; j<Objet_U::dimension; j++)
           {
+            tab_zero(elem, i, j) = 0.;
             S_etoile(elem,i,j) = 0.5*( gij(elem,i,j,0) + gij(elem,j,i,0) ) * k_sur_eps;
             R_etoile(elem,i,j) = 0.5*( gij(elem,i,j,0) - gij(elem,j,i,0) ) * k_sur_eps;
           }
@@ -652,47 +687,116 @@ void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
 
   T1_etoile_  = S_etoile;
 
-  T2_etoile_  = SR;
-  T2_etoile_ -= RS;
+  if ( std::find(T_list.begin(), T_list.end(), 2) != T_list.end() )
+    {
+//      cout << "using T2" << endl;
+      T2_etoile_  = SR;
+      T2_etoile_ -= RS;
+    }
+  else
+    T2_etoile_  = tab_zero;
 
-  T3_etoile_  = S2;
-  T3_etoile_ -= L1Id;
+  if ( std::find(T_list.begin(), T_list.end(), 3) != T_list.end() )
+    {
+//      cout << "using T3" << endl;
+      T3_etoile_  = S2;
+      T3_etoile_ -= L1Id;
+    }
+  else
+    T3_etoile_  = tab_zero;
 
-  T4_etoile_  = R2;
-  T4_etoile_ -= L2Id;
+  if ( std::find(T_list.begin(), T_list.end(), 4) != T_list.end() )
+    {
+//      cout << "using T4" << endl;
+      T4_etoile_  = R2;
+      T4_etoile_ -= L2Id;
+    }
+  else
+    T4_etoile_  = tab_zero;
 
-  T5_etoile_  = RS2;
-  T5_etoile_ -= S2R;
 
-  T6_etoile_  = R2S;
-  T6_etoile_ += SR2;
-  T6_etoile_ -= L4Id;
+  if ( std::find(T_list.begin(), T_list.end(), 5) != T_list.end() )
+    {
+//      cout << "using T5" << endl;
+      T5_etoile_  = RS2;
+      T5_etoile_ -= S2R;
+    }
+  else
+    T5_etoile_  = tab_zero;
 
-  T7_etoile_  = RSR2;
-  T7_etoile_ -= R2SR;
+//  T6_etoile_  = R2S;
+//  T6_etoile_ += SR2;
+//  T6_etoile_ -= L4Id;
+//
+//  T7_etoile_  = RSR2;
+//  T7_etoile_ -= R2SR;
+//
+//  T8_etoile_  = SRS2;
+//  T8_etoile_ -= S2RS;
+//
+//  T9_etoile_  = R2S2;
+//  T9_etoile_ += S2R2;
+//  T9_etoile_ -= L5Id;
+//
+//  T10_etoile_  = RS2R2;
+//  T10_etoile_ -= R2S2R;
 
-  T8_etoile_  = SRS2;
-  T8_etoile_ -= S2RS;
-
-  T9_etoile_  = R2S2;
-  T9_etoile_ += S2R2;
-  T9_etoile_ -= L5Id;
-
-  T10_etoile_  = RS2R2;
-  T10_etoile_ -= R2S2R;
+//  T2_etoile_  = tab_zero;
+//  T3_etoile_ = tab_zero;
+//  T4_etoile_  = tab_zero;
+//  T5_etoile_ = tab_zero;
+  T6_etoile_  = tab_zero;
+  T7_etoile_ = tab_zero;
+  T8_etoile_  = tab_zero;
+  T9_etoile_ = tab_zero;
+  T10_etoile_ = tab_zero;
 }
 
-DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_Tenseur_Reynolds(DoubleTab& resu)
-{
-  DoubleTab bij;
+//DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_Tenseur_Reynolds(DoubleTab& resu)
+//{
+//  DoubleTab bij;
+//
+//  if (tbnn->is_canal_plan_)
+//    {
+//      bij = Calcul_bij_TBNN(resu);
+//    }
+//  if (tbnn->is_canal_carre_)
+//    {
+//      bij = Calcul_bij_TBNN_carre(resu);
+//    }
+//
+//  const DoubleTab& K_eps = eqn_transport_K_Eps_->inconnue().valeurs();
+//
+//  for (int elem=0; elem<nelem_; elem++)
+//    {
+//      for (int i=0; i<Objet_U::dimension; i++)
+//        for (int j=0; j<Objet_U::dimension; j++)
+//          {
+//            resu(elem,i,j) = bij(elem,i,j) ;
+//
+//            if (i==j)
+//              {
+//                resu(elem,i,j) += 1./3.;
+//              }
+//
+//            resu(elem,i,j) *= 2. * K_eps(elem,0);
+//          }
+//    }
+//
+//
+//  return resu;
+//}
 
+DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_Tenseur_Reynolds_NL(DoubleTab& resu)
+{
+  DoubleTab bij_NL;
   if (tbnn->is_canal_plan_)
     {
-      bij = Calcul_bij_TBNN(resu);
+      bij_NL = Calcul_bij_NL_TBNN(resu);
     }
   if (tbnn->is_canal_carre_)
     {
-      bij = Calcul_bij_TBNN_carre(resu);
+      bij_NL = Calcul_bij_NL_TBNN_carre(resu);
     }
 
   const DoubleTab& K_eps = eqn_transport_K_Eps_->inconnue().valeurs();
@@ -702,7 +806,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_Tenseur_Reynolds(DoubleTab&
       for (int i=0; i<Objet_U::dimension; i++)
         for (int j=0; j<Objet_U::dimension; j++)
           {
-            resu(elem,i,j) = bij(elem,i,j) ;
+            resu(elem,i,j) = bij_NL(elem,i,j) ;
 
             if (i==j)
               {
@@ -710,32 +814,12 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_Tenseur_Reynolds(DoubleTab&
               }
 
             resu(elem,i,j) *= 2. * K_eps(elem,0);
-          }
-    }
 
-
-  return resu;
-}
-
-DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_Tenseur_Reynolds_NL(DoubleTab& resu)
-{
-  if (tbnn->is_canal_plan_)
-    {
-      Calcul_bij_NL_TBNN(resu);
-    }
-  if (tbnn->is_canal_carre_)
-    {
-      Calcul_bij_NL_TBNN_carre(resu);
-    }
-
-  const DoubleTab& K_eps = eqn_transport_K_Eps_->inconnue().valeurs();
-
-  for (int elem=0; elem<nelem_; elem++)
-    {
-      for (int i=0; i<Objet_U::dimension; i++)
-        for (int j=0; j<Objet_U::dimension; j++)
-          {
-            resu(elem,i,j) *= 2. * K_eps(elem,0);
+            if (T_list.size() == 1 && T_list[0] == 1)
+              {
+                resu(elem,i,j) = 0.;
+//                cout << "linear case" << endl;
+              }
 
           }
     }
@@ -783,17 +867,14 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_NL_TBNN_carre(DoubleTab
         {
           for (int j=0; j<Objet_U::dimension; j++)
             {
-# ifdef NON_LINEAR_BIJ
               resu_NL(elem,i,j) += abs(g1_(elem)) * T1_etoile_(elem,i,j);
-# else
-              resu_NL(elem,i,j) = 0;
-# endif
             }
         }
     }
 
   return resu_NL;
 }
+
 DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
 {
   vector<double> b;
@@ -945,28 +1026,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
   vector<vector<double>> T;
   DoubleTab g1(nelem_);
   double u_t = 0., sum_surface=0.;
-
   double dudy_paroi, dudz_paroi ;
-
-  //  std::vector<double> A = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/A_1000.dat");
-  //  std::vector<double> C = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/C_1000.dat");
-  //  std::vector<double> B0 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B0_1000.dat");
-  //  std::vector<double> B1 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B1_1000.dat");
-  //  std::vector<double> B2 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B2_1000.dat");
-  //  std::vector<double> B3 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B3_1000.dat");
-  //  std::vector<double> B4 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B4_1000.dat");
-  //  std::vector<double> B5 = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/NN_DNS/DNS_1000/B5_1000.dat");
-  //  std::vector<double> c_mu_DNS = read_file("/volatile/catB/dr274584/stage_sanae/dr_essais/dr_dossier/TBNN/Cas_1000/c_mu_DNS_1000.dat");
-
-  //const Champ_base& y_plus_champ = eqn_NS_.valeur().get_champ("y_plus");
-  //DoubleTab y_plus_elem;
-  //const DoubleTab& positions=le_dom_VDF.valeur().xp();
-  //IntVect les_polys(positions.dimension(0));
-  //le_dom_VDF.valeur().domaine().chercher_elements(positions, les_polys);
-  //y_plus_champ.valeur_aux_elems(positions, les_polys, y_plus_elem);
-
-  //const DoubleTab& y_plus_elem = eqn_NS_->get_champ("y_plus").valeurs();
-
   double x_elem, y_elem, z_elem;
   int position_base = -1;
   int position_gauche = -1;
@@ -995,8 +1055,6 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
   ref_cast_non_const(Champ_Face_VDF,vitesse).calcul_duidxj( vitesse.valeurs(),gij,domaine_Cl_VDF );
 
   double nu = eqn_NS_->fluide().viscosite_cinematique().valeurs()[0];
-
-  //std::cout << "nb_bords_total = " << domaine_VDF.domaine().nb_bords()  << std::endl;
 
   // Boucle sur les bords pour calculer u_tau
   for (int n_bord=0; n_bord<domaine_VDF.domaine().nb_bords(); n_bord++)
@@ -1043,13 +1101,13 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
 
   u_t = mp_sum(u_t);
   u_t = u_t / mp_sum(sum_surface);
-  u_t = 1.5980385955900369005e-2;
-  //std::cout << "u_t " << u_t << std::endl;
+//  u_t = 1.5980385955900369005e-2; // utau at Re=150
+  //u_t = 1.5232256198707107633e-2; // utau at Re=250
 
+  // Boucle sur les bords pour remplir y+ et z+
   for (int n_bord=0; n_bord<domaine_VDF.domaine().nb_bords(); n_bord++)
     {
       // Si face de Dirichlet (les parois) on calcule y+ ou z+
-
       const Cond_lim& la_cl = domaine_Cl_VDF.les_conditions_limites(n_bord);
 
       int elem_paroi;
@@ -1092,12 +1150,12 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
         }
     }
 
-  int nb_joints = domaine_VDF.domaine().nb_joints();
 
+
+  int nb_joints = domaine_VDF.domaine().nb_joints();
   // Boucle sur les joints pour remplir y+ et z+
   for (int njoint=0; njoint<nb_joints; njoint++)
     {
-//      std::cout << "nbjoint=" << njoint << std::endl;
       const Joint& joint = domaine_VDF.domaine().joint(njoint);
       const IntTab& indices_faces_joint = joint.joint_item(Joint::FACE).renum_items_communs();
       const int nfaces = indices_faces_joint.dimension(0);
@@ -1138,24 +1196,36 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
         }
     }
 
+
   MD_Vector_tools::echange_espace_virtuel(y_plus_wall, MD_Vector_tools::EV_SOMME_ECHANGE);
   MD_Vector_tools::echange_espace_virtuel(xp_paroi, MD_Vector_tools::EV_SOMME_ECHANGE);
 
-  //
   //  init of lambda and T arrays
   lambda.resize(5);
   T.resize(11);
   for (int i=0; i<11; i++)
     T[i].resize(6);
-  T[0][0] = 1./3.;
-  T[0][1] = 0.;
-  T[0][2] = 0.;
-  T[0][3] = -1./6.;
-  T[0][4] = 0.;
-  T[0][5] = -1./6.;
 
+  if ( std::find(T_list.begin(), T_list.end(), 0) != T_list.end() )
+    {
+      T[0][0] = 1./3.;
+      T[0][1] = 0.;
+      T[0][2] = 0.;
+      T[0][3] = -1./6.;
+      T[0][4] = 0.;
+      T[0][5] = -1./6.;
+    }
+  else
+    {
+      T[0][0] = 0.;
+      T[0][1] = 0.;
+      T[0][2] = 0.;
+      T[0][3] = 0.;
+      T[0][4] = 0.;
+      T[0][5] = 0.;
+    }
 
-//  static bool executed = false;  // Static variable to track execution
+  static bool executed = false;  // Static variable to track execution
   for (int elem=0; elem<nelem_; elem++)
     {
 
@@ -1169,7 +1239,6 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
         {
           for (int j=i; j<Objet_U::dimension; j++)
             {
-              //Cerr << "T[" << k << "]=T*[" << i << " " << j << "]" << finl;
               T[1][k] = T1_etoile_(elem,i,j);
               T[2][k] = T2_etoile_(elem,i,j);
               T[3][k] = T3_etoile_(elem,i,j);
@@ -1187,7 +1256,6 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
       x_elem = xp(elem, 0) ; // x=0
       y_elem = xp(elem, 1) ; // y=1
       z_elem = xp(elem, 2) ; // z=2
-
 
       position_base = -1;
       position_gauche = -1;
@@ -1244,100 +1312,97 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
       Re_t = compute_Re_t(y_plus_wall(position_base,1),y_maille_paroi);
 
       // prediction by neural network
-      b = tbnn->predict_carre(lambda, T, y_plus, z_plus, Re_t);
-
-      // add realizability constraints
-      int idx_diag[] = {0,3,5};
-      int idx_nondiag[] = {1,2,4};
-
-      for (int i=0; i<3; i++ )
+      if (!executed)
         {
-          //Cerr << i << finl;
-          if (b[idx_diag[i]] < -1./3.)
-            {
-              b[idx_diag[i]] = -1./3.;
-            }
-          else if (b[idx_diag[i]] > 2./3.)
-            {
-              b[idx_diag[i]] = 2./3.;
-            }
-        }
+          b = tbnn->predict_carre(lambda, T, y_plus, z_plus, Re_t);
 
-      for (int i=0; i<3; i++ )
-        {
-          if (b[idx_nondiag[i]] < -1./2.)
-            {
-              b[idx_nondiag[i]] = -1./2.;
-            }
-          else if (b[idx_nondiag[i]] > 1./2.)
-            {
-              b[idx_nondiag[i]] = 1./2.;
-            }
-        }
-
-      resu(elem,0,0) = b[0];
-      resu(elem,0,1) = b[1];
-      resu(elem,0,2) = b[2];
-      resu(elem,1,0) = b[1];
-      resu(elem,1,1) = b[3];
-      resu(elem,1,2) = b[4];
-      resu(elem,2,0) = b[2];
-      resu(elem,2,1) = b[4];
-      resu(elem,2,2) = b[5];
-
-      g1(elem) = tbnn->get_g1_carre();
-
-//      if (!executed)
+          // add realizability constraints
+//      int idx_diag[] = {0,3,5};
+//      int idx_nondiag[] = {1,2,4};
+//
+//      for (int i=0; i<3; i++ )
 //        {
-//          /*
-//            for (int i = 1; i <= 10; ++i)
-//              {
-//                for (int j=0; j<6; j++)
-//                  {
-//                    ofstream fileOUT("T" + std::to_string(i) + "_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
-//                    fileOUT << T[i][j] << endl; // append "some stuff" to the end of the file
-//                    fileOUT.close(); // close the file
-//                  }
-//              }
-//            for (int j=0; j<5; j++)
-//              {
-//                ofstream fileOUT0("l_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
-//                fileOUT0 << lambda[j] << endl; // append "some stuff" to the end of the file
-//                fileOUT0.close(); // close the file
-//              }
-//          */
-//          ofstream fileOUT1("yp.dat", ios::app); // open filename.txt in append mod
-//          fileOUT1 << y_plus << endl; // append "some stuff" to the end of the file
-//          fileOUT1.close(); // close the file
-//
-//          ofstream fileOUT2("zp.dat", ios::app); // open filename.txt in append mod
-//          fileOUT2 << z_plus << endl; // append "some stuff" to the end of the file
-//          fileOUT2.close(); // close the file
-//          /*
-//          ofstream fileOUT3("Re_t.dat", ios::app); // open filename.txt in append mod
-//          fileOUT3 << Re_t << endl; // append "some stuff" to the end of the file
-//          fileOUT3.close(); // close the file
-//
-//          ofstream fileOUT4("g1.dat", ios::app); // open filename.txt in append mod
-//          fileOUT4 << g1(elem) << endl; // append "some stuff" to the end of the file
-//          fileOUT4.close(); // close the file
-//
-//          for (int j=0; j<6; j++)
+//          if (b[idx_diag[i]] < -1./3.)
 //            {
-//              ofstream fileOUT5("b_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
-//              fileOUT5 << b[j] << endl; // append "some stuff" to the end of the file
-//              fileOUT5.close(); // close the file
+//              b[idx_diag[i]] = -1./3.;
 //            }
+//          else if (b[idx_diag[i]] > 2./3.)
+//            {
+//              b[idx_diag[i]] = 2./3.;
+//            }
+//        }
 //
-//          tbnn->output_processed_data();
-//          */
-//
+//      for (int i=0; i<3; i++ )
+//        {
+//          if (b[idx_nondiag[i]] < -1./2.)
+//            {
+//              b[idx_nondiag[i]] = -1./2.;
+//            }
+//          else if (b[idx_nondiag[i]] > 1./2.)
+//            {
+//              b[idx_nondiag[i]] = 1./2.;
+//            }
 //        }
 
+          resu(elem,0,0) = b[0];
+          resu(elem,0,1) = b[1];
+          resu(elem,0,2) = b[2];
+          resu(elem,1,0) = b[1];
+          resu(elem,1,1) = b[3];
+          resu(elem,1,2) = b[4];
+          resu(elem,2,0) = b[2];
+          resu(elem,2,1) = b[4];
+          resu(elem,2,2) = b[5];
+
+          g1(elem) = tbnn->get_g1_carre();
 
 
+
+          for (int i = 1; i <= 10; ++i)
+            {
+              for (int j=0; j<6; j++)
+                {
+                  ofstream fileOUT("T" + std::to_string(i) + "_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
+                  fileOUT << T[i][j] << endl; // append "some stuff" to the end of the file
+                  fileOUT.close(); // close the file
+                }
+            }
+          for (int j=0; j<5; j++)
+            {
+              ofstream fileOUT0("l_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
+              fileOUT0 << lambda[j] << endl; // append "some stuff" to the end of the file
+              fileOUT0.close(); // close the file
+            }
+
+          ofstream fileOUT1("yp.dat", ios::app); // open filename.txt in append mod
+          fileOUT1 << y_plus << endl; // append "some stuff" to the end of the file
+          fileOUT1.close(); // close the file
+
+          ofstream fileOUT2("zp.dat", ios::app); // open filename.txt in append mod
+          fileOUT2 << z_plus << endl; // append "some stuff" to the end of the file
+          fileOUT2.close(); // close the file
+
+          ofstream fileOUT3("Re_t.dat", ios::app); // open filename.txt in append mod
+          fileOUT3 << Re_t << endl; // append "some stuff" to the end of the file
+          fileOUT3.close(); // close the file
+
+          ofstream fileOUT4("g1.dat", ios::app); // open filename.txt in append mod
+          fileOUT4 << g1(elem) << endl; // append "some stuff" to the end of the file
+          fileOUT4.close(); // close the file
+
+          for (int j=0; j<6; j++)
+            {
+              ofstream fileOUT5("b_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
+              fileOUT5 << b[j] << endl; // append "some stuff" to the end of the file
+              fileOUT5.close(); // close the file
+            }
+
+          tbnn->output_processed_data();
+
+
+        }
     }
-//  executed = true;
+  executed = true;
 
   // save predictions and g1 values
   g1_ = g1;

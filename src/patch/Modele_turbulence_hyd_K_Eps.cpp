@@ -108,6 +108,22 @@ void Modele_turbulence_hyd_K_Eps::discretiser()
   dis.discretiser_champ("champ_elem",mon_equation->domaine_dis().valeur(),"Cmu","",1,mon_equation->schema_temps().temps_courant(),Cmu_);
   champs_compris_.ajoute_champ(Cmu_);
 
+  dis.discretiser_champ("champ_elem",mon_equation->domaine_dis().valeur(),"Lambda1","",1,mon_equation->schema_temps().temps_courant(),lambda1_);
+  champs_compris_.ajoute_champ(lambda1_);
+
+  dis.discretiser_champ("champ_elem",mon_equation->domaine_dis().valeur(),"Lambda2","",1,mon_equation->schema_temps().temps_courant(),lambda2_);
+  champs_compris_.ajoute_champ(lambda2_);
+
+  dis.discretiser_champ("champ_elem",mon_equation->domaine_dis().valeur(),"Lambda3","",1,mon_equation->schema_temps().temps_courant(),lambda3_);
+  champs_compris_.ajoute_champ(lambda3_);
+
+  dis.discretiser_champ("champ_elem",mon_equation->domaine_dis().valeur(),"Lambda4","",1,mon_equation->schema_temps().temps_courant(),lambda4_);
+  champs_compris_.ajoute_champ(lambda4_);
+
+  dis.discretiser_champ("champ_elem",mon_equation->domaine_dis().valeur(),"Lambda5","",1,mon_equation->schema_temps().temps_courant(),lambda5_);
+  champs_compris_.ajoute_champ(lambda5_);
+
+
   Noms noms(6);
   Noms unit(6);
   noms[0]="bij_00";

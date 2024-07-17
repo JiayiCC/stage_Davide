@@ -95,8 +95,14 @@ calculer_terme_production_K(const Domaine_VDF& domaine_VDF, const Domaine_Cl_VDF
 }
 
 DoubleVect& Calcul_Production_K_VDF::
-calculer_terme_production_K_neuronal(const Domaine_VDF& domaine_VDF, const Domaine_Cl_VDF& domaine_Cl_VDF , DoubleVect& S,  const DoubleTab& K_eps,
-                                     const DoubleTab& vitesse,const Champ_Face_VDF& vit,  const DoubleTab& visco_turb, const DoubleTab& bij )  const
+calculer_terme_production_K_neuronal(const Domaine_VDF& domaine_VDF,
+                                     const Domaine_Cl_VDF& domaine_Cl_VDF ,
+                                     DoubleVect& S,
+                                     const DoubleTab& K_eps,
+                                     const DoubleTab& vitesse,
+                                     const Champ_Face_VDF& vit,
+                                     const DoubleTab& visco_turb,
+                                     const DoubleTab& bij )  const
 {
   int nb_elem = domaine_VDF.domaine().nb_elem();
 

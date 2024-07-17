@@ -86,7 +86,7 @@ protected:
   DoubleTab& Calcul_bij_TBNN_carre(DoubleTab& resu);
   DoubleTab& Calcul_bij_NL_TBNN(DoubleTab& );
   DoubleTab& Calcul_bij_NL_TBNN_carre(DoubleTab& );
-  DoubleTab& Calcul_Tenseur_Reynolds( DoubleTab& );
+//  DoubleTab& Calcul_Tenseur_Reynolds( DoubleTab& );
   DoubleTab& Calcul_Tenseur_Reynolds_NL( DoubleTab& );
 
   DoubleTab lambda_1_etoile_;
@@ -114,6 +114,7 @@ protected:
 //  bool stabilisateur_;
 //  fonction_stabilisatrice fonction_stabilisatrice_;
 
+  std::vector<int> T_list;
 
   Nom nn_casename;                  // nom du reseau de neurones a charger
   TBNN *tbnn;                       // objet reseau de neurones

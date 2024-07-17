@@ -69,6 +69,11 @@ public:
   }
 //  inline void set_bij(const DoubleTab& bij);
   inline DoubleTab& get_bij();
+  inline DoubleTab& get_l1();
+  inline DoubleTab& get_l2();
+  inline DoubleTab& get_l3();
+  inline DoubleTab& get_l4();
+  inline DoubleTab& get_l5();
 
 protected:
   Transport_K_Eps  eqn_transport_K_Eps;
@@ -77,6 +82,7 @@ protected:
   Champ_Don LeCmu_champ;
   DoubleTab LeCmu_tab;
   Champ_Fonc Cmu_, bij_;
+  Champ_Fonc lambda1_, lambda2_, lambda3_, lambda4_, lambda5_;
   int is_initialized = 0;
 };
 
@@ -90,6 +96,30 @@ inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_bij()
   return bij_.valeurs();
 }
 
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_l1()
+{
+  return lambda1_.valeurs();
+}
+
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_l2()
+{
+  return lambda2_.valeurs();
+}
+
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_l3()
+{
+  return lambda3_.valeurs();
+}
+
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_l4()
+{
+  return lambda4_.valeurs();
+}
+
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_l5()
+{
+  return lambda5_.valeurs();
+}
 
 // Description:
 //    Renvoie le champ inconnue du modele de turbulence
