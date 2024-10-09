@@ -95,15 +95,10 @@ calculer_terme_production_K(const Domaine_VDF& domaine_VDF, const Domaine_Cl_VDF
 }
 
 DoubleVect& Calcul_Production_K_VDF::
-calculer_terme_production_K_neuronal(const Domaine_VDF& domaine_VDF,
-                                     const Domaine_Cl_VDF& domaine_Cl_VDF ,
-                                     DoubleVect& S,
-                                     const DoubleTab& K_eps,
-                                     const DoubleTab& vitesse,
-                                     const Champ_Face_VDF& vit,
-                                     const DoubleTab& visco_turb,
-                                     const DoubleTab& bij )  const
+calculer_terme_production_K_neuronal(const Domaine_VDF& domaine_VDF, const Domaine_Cl_VDF& domaine_Cl_VDF , DoubleVect& S,  const DoubleTab& K_eps,
+                                     const DoubleTab& vitesse,const Champ_Face_VDF& vit,  const DoubleTab& visco_turb, const DoubleTab& bij )  const
 {
+  int nb_elem_tot = domaine_VDF.domaine().nb_elem_tot();
   int nb_elem = domaine_VDF.domaine().nb_elem();
 
   int elem;
@@ -112,7 +107,7 @@ calculer_terme_production_K_neuronal(const Domaine_VDF& domaine_VDF,
 
   //Version avec calcul tenseur reynolds neuronal sans loi de paroi associe => voir rapport technique Angeli et al. decembre 2022 p 21
 
-  DoubleTab gij(nb_elem,Objet_U::dimension,Objet_U::dimension, vitesse.line_size());
+  DoubleTab gij(nb_elem_tot,Objet_U::dimension,Objet_U::dimension, vitesse.line_size());
   vit.calcul_duidxj( vitesse,gij,domaine_Cl_VDF );
 
 
@@ -126,6 +121,7 @@ calculer_terme_production_K_neuronal(const Domaine_VDF& domaine_VDF,
           S(elem) -= 2*K_eps(elem,0)*bij(elem,i,j)*0.5*( gij(elem,i,j,0) + gij(elem,j,i,0));
 
     }
+//  cout << "calling production neuronal"  << endl;
 
   Debog::verifier("Source_Transport_K_Eps_VDF_P0_VDF:: calculer_terme_production_K ",S);
   return S ;

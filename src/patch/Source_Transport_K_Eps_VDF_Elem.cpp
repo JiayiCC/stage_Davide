@@ -52,10 +52,7 @@ void Source_Transport_K_Eps_VDF_Elem::calculer_terme_production(const Champ_Face
   //REF(Tenseur_Reynolds_Externe_VDF_Face) ggg = mon_eq_transport_K_Eps->modele_turbulence().get_source_tenseur_de_Reynolds_NN();
   const DoubleTab& bij = mon_eq_transport_K_Eps.valeur().modele_turbulence().get_source_tenseur_de_Reynolds_NN().get_bij();
   if (axi) calculer_terme_production_K_Axi(le_dom_VDF.valeur(),vitesse,P,K_eps,visco_turb);
-  else if(tenseur_Reynolds_externe)
-    {
-      calculer_terme_production_K_neuronal(le_dom_VDF.valeur(),le_dom_Cl_VDF.valeur(),P,K_eps,vit,vitesse,visco_turb,bij);
-    }
+  else if (tenseur_Reynolds_externe) calculer_terme_production_K_neuronal(le_dom_VDF.valeur(),le_dom_Cl_VDF.valeur(),P,K_eps,vit,vitesse,visco_turb,bij);
   else calculer_terme_production_K(le_dom_VDF.valeur(),le_dom_Cl_VDF.valeur(),P,K_eps,vit,vitesse,visco_turb);
 }
 

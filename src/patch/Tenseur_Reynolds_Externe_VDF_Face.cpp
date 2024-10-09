@@ -32,6 +32,7 @@
 #include <Navier_Stokes_Turbulent.h>
 #include <Probleme_base.h>
 #include <Modele_turbulence_hyd_K_Eps.h>
+#include <Modele_Fonc_Bas_Reynolds.h>
 #include <TRUSTTrav.h>
 #include <Dirichlet_paroi_defilante.h>
 #include <Echange_externe_impose.h>
@@ -50,6 +51,8 @@
 #include <algorithm>
 #include <fstream>
 using namespace std;
+#include <chrono>
+using namespace std::chrono;
 
 Implemente_instanciable_sans_constructeur_ni_destructeur(Tenseur_Reynolds_Externe_VDF_Face,"Tenseur_Reynolds_Externe_VDF_Face",Source_base);
 
@@ -58,6 +61,7 @@ Implemente_instanciable_sans_constructeur_ni_destructeur(Tenseur_Reynolds_Extern
 
 Tenseur_Reynolds_Externe_VDF_Face::Tenseur_Reynolds_Externe_VDF_Face()
 {
+
 }
 
 Tenseur_Reynolds_Externe_VDF_Face::~Tenseur_Reynolds_Externe_VDF_Face()
@@ -76,10 +80,10 @@ Sortie& Tenseur_Reynolds_Externe_VDF_Face::printOn(Sortie& s ) const
 
 Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
 {
+
   Motcle accolade_ouverte("{");
   Motcle accolade_fermee("}");
   Motcle motlu;
-
 
   is >> motlu;
   if (motlu != accolade_ouverte)
@@ -87,7 +91,7 @@ Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
       Cerr << "On attendait { pour commencer a lire les constantes de Tenseur_Reynolds_Externe" << finl;
       exit();
     }
-  Motcles les_mots(9);
+  Motcles les_mots(22);
   {
     les_mots[0] = "nom_fichier";
     les_mots[1] = "canal_plan";
@@ -98,7 +102,19 @@ Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
     les_mots[6] = "3";
     les_mots[7] = "4";
     les_mots[8] = "5";
-
+    les_mots[9] = "6";
+    les_mots[10] = "7";
+    les_mots[11] = "8";
+    les_mots[12] = "9";
+    les_mots[13] = "10";
+    les_mots[14] = "mettre_a_jour";
+    les_mots[15] = "T_stab";
+    les_mots[16] = "sous_relaxation_RST";
+    les_mots[17] = "sous_relaxation_nut";
+    les_mots[18] = "only_g1";
+    les_mots[19] = "K_EPS_fichiers";
+    les_mots[20] = "k_eps";
+    les_mots[21] = "Nisizima";
   }
   is >> motlu;
   //Cerr << "We are here" << finl;
@@ -127,32 +143,109 @@ Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
           }
         case 3 :
           {
-            T_list.push_back(0);
+            T_list_.push_back(0);
+//            modele_K_Eps_.valeur().T_list().push_back(0);
             break;
           }
         case 4 :
           {
-            T_list.push_back(1);
+//            cout << "we got 1 for T_list " << endl;
+            T_list_.push_back(1);
             break;
           }
         case 5 :
           {
-            T_list.push_back(2);
+            T_list_.push_back(2);
             break;
           }
         case 6 :
           {
-            T_list.push_back(3);
+            T_list_.push_back(3);
             break;
           }
         case 7 :
           {
-            T_list.push_back(4);
+            T_list_.push_back(4);
             break;
           }
         case 8 :
           {
-            T_list.push_back(5);
+            T_list_.push_back(5);
+            break;
+          }
+        case 9 :
+          {
+            T_list_.push_back(6);
+            break;
+          }
+        case 10 :
+          {
+            T_list_.push_back(7);
+            break;
+          }
+        case 11 :
+          {
+            T_list_.push_back(8);
+            break;
+          }
+        case 12 :
+          {
+            T_list_.push_back(9);
+            break;
+          }
+        case 13 :
+          {
+            T_list_.push_back(10);
+            break;
+          }
+        case 14 :
+          {
+            is >> idt_mettre_a_jour;
+            cout << "The external RST source will be updated every " << idt_mettre_a_jour << " time step" << endl;
+            break;
+          }
+        case 15 :
+          {
+            is >> T_stab;
+            cout << "The stability function is 1-exp(-t/" << T_stab << ")" << endl;
+            break;
+          }
+        case 16 :
+          {
+            is >> relax_RST;
+            cout << "The RST relaxation factor is " << relax_RST << endl;
+            break;
+          }
+        case 17 :
+          {
+            is >> relax_g1;
+            cout << "The g1 relaxation factor is " << relax_g1 << endl;
+            break;
+          }
+        case 18 : // "canal_plan"
+          {
+            only_g1(true);
+            break;
+          }
+        case 19 :
+          {
+            apply_keps_NN(true);
+            is >> nn_casename_k;
+            cout << "The read case name for k is " << nn_casename_k << endl;
+            is >> nn_casename_eps;
+            cout << "The read case name for eps is " << nn_casename_eps << endl;
+            readNN_keps();
+            break;
+          }
+        case 20 :
+          {
+            apply_keps_DNS(true);
+            is >> KEps_champ;
+            break;
+          }
+        case 21 :
+          {
+            apply_Nisizima(true);
             break;
           }
         default :
@@ -164,7 +257,6 @@ Entree& Tenseur_Reynolds_Externe_VDF_Face::readOn(Entree& is )
 
       is >> motlu;
     }
-
   return is;
 
 }
@@ -177,6 +269,24 @@ void Tenseur_Reynolds_Externe_VDF_Face::readNN()
 
   cout << "Chargement du reseau de neurones: " + model_NN_file << endl;
   tbnn = new TBNN(model_NN_file,ppp_NN_file);  //capire perchè è una giungla
+
+}
+
+void Tenseur_Reynolds_Externe_VDF_Face::readNN_keps()
+{
+  string path_NN = string(getenv("project_directory")) + "/share/reseaux_neurones/";
+  string model_NN_file = path_NN + string(nn_casename_k) + ".json";
+  string ppp_NN_file = path_NN + string(nn_casename_k) + ".ppp";
+
+  cout << "Chargement du reseau de neurones: " + model_NN_file << endl;
+  tbnn_k = new TBNN(model_NN_file,ppp_NN_file);  //capire perchè è una giungla
+
+  model_NN_file = path_NN + string(nn_casename_eps) + ".json";
+  ppp_NN_file = path_NN + string(nn_casename_eps) + ".ppp";
+
+  cout << "Chargement du reseau de neurones: " + model_NN_file << endl;
+  tbnn_eps = new TBNN(model_NN_file,ppp_NN_file);  //capire perchè è una giungla
+
 }
 
 void Tenseur_Reynolds_Externe_VDF_Face::associer_pb(const Probleme_base& pb)
@@ -382,116 +492,19 @@ const DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::get_bij() const
   return bij_;
 }
 
+const DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::get_bij_NL() const
+{
+  return bij_NL_;
+}
+
 const DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::get_g1() const
 {
   return g1_;
 }
 
-void Tenseur_Reynolds_Externe_VDF_Face::mettre_a_jour(double temps)
+void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambdaT()
 {
-  int nb_elem_tot = le_dom_VDF.valeur().nb_elem_tot();
-  int nb_faces_tot = le_dom_VDF.valeur().nb_faces_tot();
-  const IntTab& face_vois = le_dom_VDF.valeur().face_voisins();
-  const DoubleVect& volumes = le_dom_VDF.valeur().volumes();
-
-  DoubleTab valeurs_source(nb_elem_tot,dimension);
-  valeurs_source = 0;
-
-  if (tbnn->is_canal_carre_)
-    {
-      Calcul_RSLambda();
-    }
-
-  DoubleTab tenseur_reynolds_elements(nb_elem_tot,dimension,dimension);
-  DoubleTab tenseur_reynolds_faces(nb_faces_tot,dimension,dimension);
-
-  static bool executed = false;  // Static variable to track execution
-  if (! executed)
-    {
-      tenseur_reynolds_elements = 0;
-
-      Calcul_Tenseur_Reynolds_NL( tenseur_reynolds_elements );
-    }
-
-  executed = true;
-
-  tenseur_reynolds_faces = 0.;
-
-  for (int fac=0; fac<nb_faces_tot; fac++)
-    {
-      int elem1 = face_vois(fac,0);
-      int elem2 = face_vois(fac,1);
-      double vol = 0;
-      if (elem1!=-1)
-        {
-          for (int i=0; i<Objet_U::dimension; i++)
-            for (int j=0; j<Objet_U::dimension; j++)
-              {
-                tenseur_reynolds_faces(fac,i,j) +=  tenseur_reynolds_elements(elem1,i,j)*volumes(elem1);
-              }
-          vol += volumes(elem1);
-        }
-      if (elem2!=-1)
-        {
-          for (int i=0; i<Objet_U::dimension; i++)
-            for (int j=0; j<Objet_U::dimension; j++)
-              {
-                tenseur_reynolds_faces(fac,i,j) +=  tenseur_reynolds_elements(elem2,i,j)*volumes(elem2);
-              }
-          vol += volumes(elem2);
-        }
-      for (int i=0; i<Objet_U::dimension; i++)
-        for (int j=0; j<Objet_U::dimension; j++)
-          {
-            tenseur_reynolds_faces(fac,i,j) /= vol;
-          }
-    }
-
-  const IntTab& elem_faces   = le_dom_VDF.valeur().elem_faces();
-  const IntTab& face_voisins = le_dom_VDF.valeur().face_voisins();
-  const DoubleVect& inverse_vol  = le_dom_VDF.valeur().inverse_volumes();
-  const int nb_faces_elem=elem_faces.line_size();
-
-
-  int facei;
-  double signe=0.;
-  double div=0.;
-
-  for (int elem=0; elem<nb_elem_tot; elem++)
-    {
-      //Calcul de la divergence par element
-      for (int i=0; i<Objet_U::dimension; i++)
-        {
-          div=0.;
-          for (int facei_loc=0; facei_loc<nb_faces_elem; facei_loc++)
-            {
-              facei=elem_faces(elem,facei_loc);
-              signe=(face_voisins(facei,0)==elem)? 1.:-1.;
-
-              for (int j=0; j<Objet_U::dimension; j++)
-                {
-                  div+=signe*le_dom_VDF.valeur().face_normales(facei,j)*tenseur_reynolds_faces(facei,i,j);
-                }
-            }
-          div*= inverse_vol(elem);
-          valeurs_source(elem,i) += div;
-        }
-    }
-
-  valeurs_source.echange_espace_virtuel();
-  la_source->valeurs( ) = valeurs_source;
-
-}
-
-void Tenseur_Reynolds_Externe_VDF_Face::completer()
-{
-  Source_base::completer();
-
-  la_source.DERIV(Champ_Don_base)::typer( "Champ_Fonc_xyz" );
-}
-
-void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
-{
+//  Cout << "Calling Calcul_RSLambdaT " << endl;
   const Domaine_VDF& domaine_VDF = le_dom_VDF.valeur();
   const Domaine_Cl_VDF& domaine_Cl_VDF = le_dom_Cl_VDF.valeur();
 
@@ -541,7 +554,7 @@ void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
 
   DoubleTab tab_zero(nb_elem_tot,dimension,dimension);
 
-  for (int elem=0; elem<nelem_; elem++)
+  for (int elem=0; elem<domaine_VDF.nb_elem(); elem++)
     {
 
       double k_sur_eps = K_eps(elem,0) / ( K_eps(elem,1) + 1.e-15 );
@@ -555,7 +568,7 @@ void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
       for (int i=0; i<Objet_U::dimension; i++)
         for (int j=0; j<Objet_U::dimension; j++)
           {
-            tab_zero(elem, i, j) = 0.;
+            tab_zero(elem,i,j) = 0.;
             S_etoile(elem,i,j) = 0.5*( gij(elem,i,j,0) + gij(elem,j,i,0) ) * k_sur_eps;
             R_etoile(elem,i,j) = 0.5*( gij(elem,i,j,0) - gij(elem,j,i,0) ) * k_sur_eps;
           }
@@ -684,119 +697,365 @@ void Tenseur_Reynolds_Externe_VDF_Face::Calcul_RSLambda()
   lambda_3_etoile_ = lambda_3;
   lambda_4_etoile_ = lambda_4;
   lambda_5_etoile_ = lambda_5;
+  T0_etoile_ = tab_zero;
+  for (int elem=0; elem<domaine_VDF.nb_elem(); elem++)
+    {
+      T0_etoile_(elem,0,0) = 1./3.;
+      T0_etoile_(elem,0,1) = 0.;
+      T0_etoile_(elem,0,2) = 0.;
+      T0_etoile_(elem,1,0) = 0.;
+      T0_etoile_(elem,1,1) = -1./6.;
+      T0_etoile_(elem,1,2) = 0.;
+      T0_etoile_(elem,2,0) = 0.;
+      T0_etoile_(elem,2,1) = 0.;
+      T0_etoile_(elem,2,2) = -1./6.;
+    }
+
 
   T1_etoile_  = S_etoile;
 
-  if ( std::find(T_list.begin(), T_list.end(), 2) != T_list.end() )
+  if (apply_Nisizima_)
     {
-//      cout << "using T2" << endl;
       T2_etoile_  = SR;
       T2_etoile_ -= RS;
-    }
-  else
-    T2_etoile_  = tab_zero;
-
-  if ( std::find(T_list.begin(), T_list.end(), 3) != T_list.end() )
-    {
-//      cout << "using T3" << endl;
       T3_etoile_  = S2;
       T3_etoile_ -= L1Id;
-    }
-  else
-    T3_etoile_  = tab_zero;
-
-  if ( std::find(T_list.begin(), T_list.end(), 4) != T_list.end() )
-    {
-//      cout << "using T4" << endl;
       T4_etoile_  = R2;
       T4_etoile_ -= L2Id;
+      T5_etoile_  = tab_zero;
+      T6_etoile_  = tab_zero;
+      T7_etoile_ = tab_zero;
+      T8_etoile_  = tab_zero;
+      T9_etoile_ = tab_zero;
+      T10_etoile_ = tab_zero;
     }
   else
-    T4_etoile_  = tab_zero;
-
-
-  if ( std::find(T_list.begin(), T_list.end(), 5) != T_list.end() )
     {
-//      cout << "using T5" << endl;
-      T5_etoile_  = RS2;
-      T5_etoile_ -= S2R;
+      if (!T_list_.empty())
+        {
+          if ( std::find(T_list_.begin(), T_list_.end(), 2) != T_list_.end() )
+            {
+              //          cout << "using T2" << endl;
+              T2_etoile_  = SR;
+              T2_etoile_ -= RS;
+            }
+          else
+            T2_etoile_  = tab_zero;
+          if ( std::find(T_list_.begin(),T_list_.end(), 3) != T_list_.end() )
+            {
+              //          cout << "using T3" << endl;
+              T3_etoile_  = S2;
+              T3_etoile_ -= L1Id;
+            }
+          else
+            T3_etoile_  = tab_zero;
+          if ( std::find(T_list_.begin(), T_list_.end(), 4) != T_list_.end() )
+            {
+              //          cout << "using T4" << endl;
+              T4_etoile_  = R2;
+              T4_etoile_ -= L2Id;
+            }
+          else
+            T4_etoile_  = tab_zero;
+          if ( std::find(T_list_.begin(), T_list_.end(), 5) != T_list_.end() )
+            {
+              //          cout << "using T5" << endl;
+              T5_etoile_  = RS2;
+              T5_etoile_ -= S2R;
+            }
+          else
+            T5_etoile_  = tab_zero;
+          if ( std::find(T_list_.begin(), T_list_.end(), 6) != T_list_.end() )
+            {
+              //          cout << "using T6" << endl;
+              T6_etoile_  = R2S;
+              T6_etoile_ += SR2;
+              T6_etoile_ -= L4Id;
+            }
+          else
+            T6_etoile_  = tab_zero;
+          if ( std::find(T_list_.begin(), T_list_.end(), 7) != T_list_.end() )
+            {
+              //          cout << "using T7" << endl;
+              T7_etoile_  = RSR2;
+              T7_etoile_ -= R2SR;
+            }
+          else
+            T7_etoile_  = tab_zero;
+          if ( std::find(T_list_.begin(), T_list_.end(), 8) != T_list_.end() )
+            {
+              //          cout << "using T8" << endl;
+              T8_etoile_  = SRS2;
+              T8_etoile_ -= S2RS;
+            }
+          else
+            T8_etoile_  = tab_zero;
+          if ( std::find(T_list_.begin(), T_list_.end(), 9) != T_list_.end() )
+            {
+              //          cout << "using T9" << endl;
+              T9_etoile_  = R2S2;
+              T9_etoile_ += S2R2;
+              T9_etoile_ -= L5Id;
+            }
+          else
+            T9_etoile_  = tab_zero;
+          if ( std::find(T_list_.begin(), T_list_.end(), 10) != T_list_.end() )
+            {
+              //          cout << "using T10" << endl;
+              T10_etoile_  = RS2R2;
+              T10_etoile_ -= R2S2R;
+            }
+          else
+            T10_etoile_  = tab_zero;
+        }
+      else
+        {
+          cerr << "T_list is empty."  << endl;
+          T2_etoile_  = tab_zero;
+          T3_etoile_  = tab_zero;
+          T4_etoile_  = tab_zero;
+          T5_etoile_  = tab_zero;
+          T6_etoile_  = tab_zero;
+          T7_etoile_ = tab_zero;
+          T8_etoile_  = tab_zero;
+          T9_etoile_ = tab_zero;
+          T10_etoile_ = tab_zero;
+        }
     }
-  else
-    T5_etoile_  = tab_zero;
 
-//  T6_etoile_  = R2S;
-//  T6_etoile_ += SR2;
-//  T6_etoile_ -= L4Id;
-//
-//  T7_etoile_  = RSR2;
-//  T7_etoile_ -= R2SR;
-//
-//  T8_etoile_  = SRS2;
-//  T8_etoile_ -= S2RS;
-//
-//  T9_etoile_  = R2S2;
-//  T9_etoile_ += S2R2;
-//  T9_etoile_ -= L5Id;
-//
-//  T10_etoile_  = RS2R2;
-//  T10_etoile_ -= R2S2R;
-
-//  T2_etoile_  = tab_zero;
-//  T3_etoile_ = tab_zero;
-//  T4_etoile_  = tab_zero;
-//  T5_etoile_ = tab_zero;
-  T6_etoile_  = tab_zero;
-  T7_etoile_ = tab_zero;
-  T8_etoile_  = tab_zero;
-  T9_etoile_ = tab_zero;
-  T10_etoile_ = tab_zero;
 }
 
-//DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_Tenseur_Reynolds(DoubleTab& resu)
-//{
-//  DoubleTab bij;
-//
-//  if (tbnn->is_canal_plan_)
-//    {
-//      bij = Calcul_bij_TBNN(resu);
-//    }
-//  if (tbnn->is_canal_carre_)
-//    {
-//      bij = Calcul_bij_TBNN_carre(resu);
-//    }
-//
-//  const DoubleTab& K_eps = eqn_transport_K_Eps_->inconnue().valeurs();
-//
-//  for (int elem=0; elem<nelem_; elem++)
-//    {
-//      for (int i=0; i<Objet_U::dimension; i++)
-//        for (int j=0; j<Objet_U::dimension; j++)
-//          {
-//            resu(elem,i,j) = bij(elem,i,j) ;
-//
-//            if (i==j)
-//              {
-//                resu(elem,i,j) += 1./3.;
-//              }
-//
-//            resu(elem,i,j) *= 2. * K_eps(elem,0);
-//          }
-//    }
-//
-//
-//  return resu;
-//}
+void Tenseur_Reynolds_Externe_VDF_Face::mettre_a_jour(double temps)
+{
+  int nb_elem_tot = le_dom_VDF.valeur().nb_elem_tot();
+  int nb_faces_tot = le_dom_VDF.valeur().nb_faces_tot();
+  const IntTab& face_vois = le_dom_VDF.valeur().face_voisins();
+  const DoubleVect& volumes = le_dom_VDF.valeur().volumes();
+
+  DoubleTab valeurs_source(nb_elem_tot,dimension);
+  DoubleTab tenseur_reynolds_elements(nb_elem_tot,dimension,dimension);
+  DoubleTab tenseur_reynolds_faces(nb_faces_tot,dimension,dimension);
+
+  valeurs_source = 0;
+  tenseur_reynolds_elements = 0;
+  tenseur_reynolds_faces = 0.;
+
+  if (apply_Nisizima_)
+    {
+      Calcul_RSLambdaT();
+      Calcul_Tenseur_Reynolds_NL( tenseur_reynolds_elements );
+
+      for (int fac=0; fac<nb_faces_tot; fac++)
+        {
+          int elem1 = face_vois(fac,0);
+          int elem2 = face_vois(fac,1);
+          double vol = 0;
+          if (elem1!=-1)
+            {
+              for (int i=0; i<Objet_U::dimension; i++)
+                for (int j=0; j<Objet_U::dimension; j++)
+                  {
+                    tenseur_reynolds_faces(fac,i,j) +=  tenseur_reynolds_elements(elem1,i,j)*volumes(elem1);
+                  }
+              vol += volumes(elem1);
+            }
+          if (elem2!=-1)
+            {
+              for (int i=0; i<Objet_U::dimension; i++)
+                for (int j=0; j<Objet_U::dimension; j++)
+                  {
+                    tenseur_reynolds_faces(fac,i,j) +=  tenseur_reynolds_elements(elem2,i,j)*volumes(elem2);
+                  }
+              vol += volumes(elem2);
+            }
+          for (int i=0; i<Objet_U::dimension; i++)
+            for (int j=0; j<Objet_U::dimension; j++)
+              {
+                tenseur_reynolds_faces(fac,i,j) /= vol;
+              }
+        }
+
+      const IntTab& elem_faces   = le_dom_VDF.valeur().elem_faces();
+      const IntTab& face_voisins = le_dom_VDF.valeur().face_voisins();
+      const DoubleVect& inverse_vol  = le_dom_VDF.valeur().inverse_volumes();
+      const int nb_faces_elem=elem_faces.line_size();
+
+
+      int facei;
+      double signe=0.;
+      double div=0.;
+
+      for (int elem=0; elem<nb_elem_tot; elem++)
+        {
+          //Calcul de la divergence par element
+          for (int i=0; i<Objet_U::dimension; i++)
+            {
+              div=0.;
+              for (int facei_loc=0; facei_loc<nb_faces_elem; facei_loc++)
+                {
+                  facei=elem_faces(elem,facei_loc);
+                  signe=(face_voisins(facei,0)==elem)? 1.:-1.;
+
+                  for (int j=0; j<Objet_U::dimension; j++)
+                    {
+                      div+=signe*le_dom_VDF.valeur().face_normales(facei,j)*tenseur_reynolds_faces(facei,i,j);
+                    }
+                }
+              div*= inverse_vol(elem);
+              valeurs_source(elem,i) = div;
+            }
+        }
+      valeurs_source.echange_espace_virtuel();
+      la_source->valeurs( ) = valeurs_source;
+
+    }
+  else
+    {
+      if ((idt_2 ==0) || (idt_2 % idt_mettre_a_jour == 0))
+        {
+
+          if (tbnn->is_canal_carre_)
+            {
+              Calcul_RSLambdaT();
+            }
+          Calcul_Tenseur_Reynolds_NL( tenseur_reynolds_elements );
+          for (int fac=0; fac<nb_faces_tot; fac++)
+            {
+              int elem1 = face_vois(fac,0);
+              int elem2 = face_vois(fac,1);
+              double vol = 0;
+              if (elem1!=-1)
+                {
+                  for (int i=0; i<Objet_U::dimension; i++)
+                    for (int j=0; j<Objet_U::dimension; j++)
+                      {
+                        tenseur_reynolds_faces(fac,i,j) +=  tenseur_reynolds_elements(elem1,i,j)*volumes(elem1);
+                      }
+                  vol += volumes(elem1);
+                }
+              if (elem2!=-1)
+                {
+                  for (int i=0; i<Objet_U::dimension; i++)
+                    for (int j=0; j<Objet_U::dimension; j++)
+                      {
+                        tenseur_reynolds_faces(fac,i,j) +=  tenseur_reynolds_elements(elem2,i,j)*volumes(elem2);
+                      }
+                  vol += volumes(elem2);
+                }
+              for (int i=0; i<Objet_U::dimension; i++)
+                for (int j=0; j<Objet_U::dimension; j++)
+                  {
+                    tenseur_reynolds_faces(fac,i,j) /= vol;
+                  }
+            }
+
+          const IntTab& elem_faces   = le_dom_VDF.valeur().elem_faces();
+          const IntTab& face_voisins = le_dom_VDF.valeur().face_voisins();
+          const DoubleVect& inverse_vol  = le_dom_VDF.valeur().inverse_volumes();
+          const int nb_faces_elem=elem_faces.line_size();
+
+
+          int facei;
+          double signe=0.;
+          double div=0.;
+          double factor=0.;
+
+          if (idt_2 <= 0)
+            factor = 1;
+          else if (T_stab > 0)
+            {
+              factor = 1 - exp(-t_stab/T_stab);
+            }
+          else
+            {
+              factor = 1;
+            }
+
+
+          for (int elem=0; elem<nb_elem_tot; elem++)
+            {
+              //Calcul de la divergence par element
+              for (int i=0; i<Objet_U::dimension; i++)
+                {
+                  div=0.;
+                  for (int facei_loc=0; facei_loc<nb_faces_elem; facei_loc++)
+                    {
+                      facei=elem_faces(elem,facei_loc);
+                      signe=(face_voisins(facei,0)==elem)? 1.:-1.;
+
+                      for (int j=0; j<Objet_U::dimension; j++)
+                        {
+                          div+=signe*le_dom_VDF.valeur().face_normales(facei,j)*tenseur_reynolds_faces(facei,i,j);
+                        }
+                    }
+                  div*= inverse_vol(elem);
+                  valeurs_source(elem,i) = div;
+                  valeurs_source(elem,i) *= factor;
+                }
+            }
+          valeurs_source.echange_espace_virtuel();
+          la_source->valeurs( ) = valeurs_source;
+          if ((idt_2 ==0) & (!is_only_g1_))
+            cout << "Source term updated by NN at time step " << idt_2  << " S^{n} = " << " S^{n} * " << factor << endl;
+
+          if ((idt_2>0) & (!is_only_g1_))
+            {
+              for (int elem=0; elem<nb_elem_tot; elem++)
+                {
+                  for (int i=0; i<Objet_U::dimension; i++)
+                    {
+                      la_source->valeurs()(elem,i) = relax_RST * valeurs_source(elem,i) + (1-relax_RST) * s_avant_(elem,i) ;
+                    }
+                }
+              cout << "Source term updated by NN at time step " << idt_2  << " S^{n} = " << relax_RST << " * S^{n} * " << factor << " + (1-" << relax_RST << ") * S^{n-1} " << endl;
+            }
+
+          if (is_only_g1_)
+            {
+              for (int elem=0; elem<nb_elem_tot; elem++)
+                {
+                  for (int i=0; i<Objet_U::dimension; i++)
+                    {
+                      la_source->valeurs()(elem,i) = 0. ;
+                    }
+                }
+              cout << "Source term updated by NN at time step " << idt_2  << " S^{n} = 0"  << endl;
+            }
+        }
+    }
+
+  s_avant_ = la_source->valeurs();
+  idt_2 = idt_2 + 1;
+  t_stab = t_stab + 1;
+}
+
+void Tenseur_Reynolds_Externe_VDF_Face::completer()
+{
+  Source_base::completer();
+
+  la_source.DERIV(Champ_Don_base)::typer( "Champ_Fonc_xyz" );
+}
+
 
 DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_Tenseur_Reynolds_NL(DoubleTab& resu)
 {
   DoubleTab bij_NL;
-  if (tbnn->is_canal_plan_)
+  if (apply_Nisizima_)
     {
-      bij_NL = Calcul_bij_NL_TBNN(resu);
+      bij_NL = Calcul_bij_NL_Nisizima(resu);
     }
-  if (tbnn->is_canal_carre_)
+  else
     {
-      bij_NL = Calcul_bij_NL_TBNN_carre(resu);
+
+      if (tbnn->is_canal_plan_)
+        {
+          bij_NL = Calcul_bij_NL_TBNN(resu);
+        }
+      else if (tbnn->is_canal_carre_)
+        {
+          bij_NL = Calcul_bij_NL_TBNN_carre(resu);
+        }
+
     }
 
   const DoubleTab& K_eps = eqn_transport_K_Eps_->inconnue().valeurs();
@@ -813,12 +1072,18 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_Tenseur_Reynolds_NL(DoubleT
                 resu(elem,i,j) += 1./3.;
               }
 
-            resu(elem,i,j) *= 2. * K_eps(elem,0);
+            if ((apply_keps_NN_) || (apply_keps_DNS_))
+              {
+                resu(elem,i,j) *= -2. * KEps_true_(elem,0); // -Rij = -ui'uj' = -2k*(bij + 1/3 delta_ij)
+              }
 
-            if (T_list.size() == 1 && T_list[0] == 1)
+            if ((!apply_keps_NN_) && (!apply_keps_DNS_))
+              {
+                resu(elem,i,j) *= -2. * K_eps(elem,0);
+              }
+            if (T_list_.size() == 1 && T_list_[0] == 1)
               {
                 resu(elem,i,j) = 0.;
-//                cout << "linear case" << endl;
               }
 
           }
@@ -848,7 +1113,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_NL_TBNN(DoubleTab& resu
 
   for (int elem=0; elem<nelem_; elem++)
     {
-      alpha = compute_alpha(K_eps(elem, 0), K_eps(elem,1), gij(elem,0,1,0) );
+      alpha = tbnn->compute_alpha(K_eps(elem, 0), K_eps(elem,1), gij(elem,0,1,0) );
       resu_NL(elem,0,1) -= 0.5 * g1_(elem) * alpha;
       resu_NL(elem,1,0) -= 0.5 * g1_(elem) * alpha;
     }
@@ -859,7 +1124,20 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_NL_TBNN(DoubleTab& resu
 DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_NL_TBNN_carre(DoubleTab& resu)
 {
 
-  DoubleTab& resu_NL = Calcul_bij_TBNN_carre(resu);
+  Calcul_bij_TBNN_carre();
+//  DoubleTab resu_NL(nelem_,dimension,dimension);
+  resu = 0;
+
+  vector<DoubleTab*> g_map =
+  {
+    &g0_, &g1_, &g2_, &g3_, &g4_, &g5_, &g6_, &g7_, &g8_, &g9_, &g10_
+  };
+
+  vector<DoubleTab*> T_etoile_map =
+  {
+    &T0_etoile_, &T1_etoile_, &T2_etoile_, &T3_etoile_, &T4_etoile_,
+    &T5_etoile_, &T6_etoile_, &T7_etoile_, &T8_etoile_, &T9_etoile_, &T10_etoile_,
+  };
 
   for (int elem=0; elem<nelem_; elem++)
     {
@@ -867,12 +1145,31 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_NL_TBNN_carre(DoubleTab
         {
           for (int j=0; j<Objet_U::dimension; j++)
             {
-              resu_NL(elem,i,j) += abs(g1_(elem)) * T1_etoile_(elem,i,j);
+              for (size_t k = 0; k < T_list_.size(); k++)
+                {
+                  int t_index = T_list_[k];
+                  if (t_index != 1)
+                    {
+                      resu(elem,i,j) += (*g_map[t_index])(elem) *  (*T_etoile_map[t_index])(elem,i,j);
+                    }
+                }
             }
         }
     }
+  DoubleTab& bij_NL_tab = modele_K_Eps_.valeur().get_bij_NL();
+  for (int elem=0; elem<nelem_; elem++)
+    {
+      bij_NL_tab(elem,0) = resu(elem,0,0);
+      bij_NL_tab(elem,1) = resu(elem,0,1);
+      bij_NL_tab(elem,2) = resu(elem,0,2);
+      bij_NL_tab(elem,3) = resu(elem,1,1);
+      bij_NL_tab(elem,4) = resu(elem,1,2);
+      bij_NL_tab(elem,5) = resu(elem,2,2);
+    }
+  bij_NL_ = resu;
 
-  return resu_NL;
+
+  return resu;
 }
 
 DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
@@ -883,7 +1180,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
   //  vector<vector<double>> T;
   DoubleTab g1(nelem_);
   const DoubleTab& K_eps = eqn_transport_K_Eps_->inconnue().valeurs();
-  double u_t;
+  double u_t = 0.;
 
   double dudy_paroi ;
 
@@ -893,7 +1190,6 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
 
   const Domaine_VDF& domaine_VDF = le_dom_VDF.valeur();
   const Domaine_Cl_VDF& domaine_Cl_VDF = le_dom_Cl_VDF.valeur();
-
   int nb_elem_tot=domaine_VDF.nb_elem_tot();
   const Champ_Face_VDF& vitesse = ref_cast(Champ_Face_VDF,eqn_NS_->inconnue().valeur() );
   assert (vitesse.valeurs().line_size() == 1);
@@ -907,7 +1203,6 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
   Re_true.resize(9);
   xpx.resize(9);
   xpz.resize(9);
-  double g1_min=DMAXFLOAT;
   double g1_max=0;
 
   // Boucle sur les bords pour traiter les conditions aux limites
@@ -939,10 +1234,7 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
               y_maille_paroi =le_dom_VDF->xp(elem_paroi, 1) ;
 
               dudy_paroi = gij(elem_paroi,0,1,0);
-
-              //u_t = sqrt(fabs(nu* dudy_paroi)+1e-20);
-              //TODO: calculate average u_t
-              u_t = sqrt(nu* dudy_paroi)+1e-40;
+              u_t = sqrt( abs(nu* dudy_paroi));
               y_plus_wall[num_face-ndeb] = y_maille_paroi * u_t / nu;
               Re_true [num_face-ndeb] =  u_t / nu;
             }
@@ -965,15 +1257,41 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
             break;
           }
 
-      alpha = compute_alpha(K_eps(elem, 0), K_eps(elem,1), gij(elem,0,1,0) ) + 1e-40;
-      y_plus = compute_y_plus(y_plus_wall[position_base],y_maille_paroi, y_elem);
-      Re_t = compute_Re_t(y_plus_wall[position_base],y_maille_paroi);
+      alpha = tbnn->compute_alpha(K_eps(elem, 0), K_eps(elem,1), gij(elem,0,1,0) ) + 1e-40;
+      y_plus = tbnn->compute_y_plus(y_plus_wall[position_base],y_maille_paroi, y_elem);
+      Re_t = tbnn->compute_Re_t(y_plus_wall[position_base],y_maille_paroi);
 
 
       // prediction by neural network
       //Cerr << " Testing PCF TRE_VDF_Face.cpp line 1213 " << finl;
       b = tbnn->predict(alpha, y_plus, Re_t);
 
+      int idx_diag[] = {0,3,5};
+      int idx_nondiag[] = {1,2,4};
+
+      for (int i=0; i<3; i++ )
+        {
+          if (b[idx_diag[i]] < -1./3.)
+            {
+              b[idx_diag[i]] = -1./3.;
+            }
+          else if (b[idx_diag[i]] > 2./3.)
+            {
+              b[idx_diag[i]] = 2./3.;
+            }
+        }
+
+      for (int i=0; i<3; i++ )
+        {
+          if (b[idx_nondiag[i]] < -1./2.)
+            {
+              b[idx_nondiag[i]] = -1./2.;
+            }
+          else if (b[idx_nondiag[i]] > 1./2.)
+            {
+              b[idx_nondiag[i]] = 1./2.;
+            }
+        }
       // copy of the predictions in resu array
       resu(elem,0,0) = b[0];
       resu(elem,0,1) = b[1];
@@ -987,18 +1305,12 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
 
       g1(elem) = tbnn->get_g1(resu(elem,0,1), alpha);
 
-      if (g1(elem) < g1_min)
+      if (g1(elem) > g1_max)
         {
-          g1_min = g1(elem);
-        }
-      else if (g1(elem) > g1_max)
-        {
-          g1_max = g1(elem);
+          g1(elem) = g1_max;
         }
     }
 
-  //Cerr << "min(g1)=" << g1_min << finl;
-  //Cerr << "max(g1)=" << g1_max << finl;
   // save predictions and g1 values
   g1_ = g1;
 
@@ -1017,35 +1329,44 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN(DoubleTab& resu)
   return resu;
 }
 
-DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& resu)
+void Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre()
 {
+  vector<double> k_ec, eps;
+  DoubleTab& K_eps = eqn_transport_K_Eps_->inconnue().valeurs();
   vector<double> b, lambda;
   double y_plus, z_plus, Re_t;
-  double y_maille_paroi =-1;
-  double z_maille_paroi=-1;
+//  double y_maille_paroi =-1;
+//  double z_maille_paroi=-1;
   vector<vector<double>> T;
+  vector<vector<double>> T_used;
+  DoubleTab g0(nelem_);
   DoubleTab g1(nelem_);
+  DoubleTab g2(nelem_);
+  DoubleTab g3(nelem_);
+  DoubleTab g4(nelem_);
+  DoubleTab g5(nelem_);
+  DoubleTab g6(nelem_);
+  DoubleTab g7(nelem_);
+  DoubleTab g8(nelem_);
+  DoubleTab g9(nelem_);
+  DoubleTab g10(nelem_);
+
+  DoubleTab resu(nelem_,dimension,dimension);
+  DoubleTab resu_keps(nelem_, 2);
   double u_t = 0., sum_surface=0.;
   double dudy_paroi, dudz_paroi ;
-  double x_elem, y_elem, z_elem;
-  int position_base = -1;
-  int position_gauche = -1;
+  double y_elem, z_elem;
+//  int position_base = -1;
+//  int position_gauche = -1;
   int ori;
 
   const Domaine_VDF& domaine_VDF = le_dom_VDF.valeur();
   const Domaine_Cl_VDF& domaine_Cl_VDF = le_dom_Cl_VDF.valeur();
   const IntTab& face_voisins = domaine_VDF.face_voisins();
   const IntVect& orientation = domaine_VDF.orientation();
-  const DoubleTab& xv = domaine_VDF.xv();
   const DoubleTab& xp = domaine_VDF.xp();
   const DoubleVect& face_surfaces = domaine_VDF.face_surfaces();
-  DoubleTab y_plus_wall, xp_paroi;
 
-  y_plus_wall.copy(xv,Array_base::NOCOPY_NOINIT);
-  y_plus_wall = 0.;
-
-  xp_paroi.copy(xv,Array_base::NOCOPY_NOINIT);
-  xp_paroi = 0.;
 
   int nb_elem_tot=domaine_VDF.nb_elem_tot();
   const Champ_Face_VDF& vitesse = ref_cast(Champ_Face_VDF,eqn_NS_->inconnue().valeur() );
@@ -1057,6 +1378,10 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
   double nu = eqn_NS_->fluide().viscosite_cinematique().valeurs()[0];
 
   // Boucle sur les bords pour calculer u_tau
+
+//  auto start = high_resolution_clock::now();
+//  cout << "computing u_tau..." << endl;
+
   for (int n_bord=0; n_bord<domaine_VDF.domaine().nb_bords(); n_bord++)
     {
       const Cond_lim& la_cl = domaine_Cl_VDF.les_conditions_limites(n_bord);
@@ -1101,112 +1426,22 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
 
   u_t = mp_sum(u_t);
   u_t = u_t / mp_sum(sum_surface);
-//  u_t = 1.5980385955900369005e-2; // utau at Re=150
-  //u_t = 1.5232256198707107633e-2; // utau at Re=250
+//  cout << "u_t _RST = " << u_t << endl;
+//  end = high_resolution_clock::now();
+//  duration = duration_cast<microseconds>(end - start).count();
+//  cout << "y_plus_wall computed..." << endl;
+//  cout << "Time for y_plus_wall " << duration << " microseconds" << endl;
 
-  // Boucle sur les bords pour remplir y+ et z+
-  for (int n_bord=0; n_bord<domaine_VDF.domaine().nb_bords(); n_bord++)
-    {
-      // Si face de Dirichlet (les parois) on calcule y+ ou z+
-      const Cond_lim& la_cl = domaine_Cl_VDF.les_conditions_limites(n_bord);
-
-      int elem_paroi;
-      if ( (sub_type(Dirichlet,la_cl.valeur()))   ||  (sub_type(Dirichlet_homogene,la_cl.valeur())))
-        {
-
-          const Front_VF& le_bord = ref_cast(Front_VF,la_cl.frontiere_dis());
-
-          int ndeb = le_bord.num_premiere_face();
-          int nfaces = le_bord.nb_faces_tot();
-          int nfin = ndeb + nfaces;
-
-          for (int num_face=ndeb; num_face<nfin; num_face++)
-            {
-
-              if (face_voisins(num_face, 0) != -1)
-                elem_paroi = face_voisins(num_face, 0);
-              else
-                elem_paroi = face_voisins(num_face, 1);
-
-              ori = orientation(num_face);
-
-              if (ori == 1)
-                {
-                  // compute y+ from the y wall
-                  y_maille_paroi = xp(elem_paroi, 1) + 1;
-                  y_plus_wall(num_face,1) = abs(y_maille_paroi) * u_t / nu;
-                  xp_paroi(num_face,1) = y_maille_paroi; // (x1, z1) are (x, z) coordinates of each face above the y=-1 boundary
-                }
-
-              if ( ori == 2 )
-                {
-                  // compute z+ from the z wall
-                  z_maille_paroi = xp(elem_paroi, 2) + 1;
-                  y_plus_wall(num_face,2) = abs(z_maille_paroi) * u_t / nu;
-                  xp_paroi(num_face,2) = z_maille_paroi; // (x2, y2) are (x, y) coordinates of each face above the z=-1 boundary
-                }
-
-            }
-        }
-    }
-
-
-
-  int nb_joints = domaine_VDF.domaine().nb_joints();
-  // Boucle sur les joints pour remplir y+ et z+
-  for (int njoint=0; njoint<nb_joints; njoint++)
-    {
-      const Joint& joint = domaine_VDF.domaine().joint(njoint);
-      const IntTab& indices_faces_joint = joint.joint_item(Joint::FACE).renum_items_communs();
-      const int nfaces = indices_faces_joint.dimension(0);
-
-      for (int j = 0; j < nfaces; j++)
-        {
-          int num_face_joint = indices_faces_joint(j, 1);
-          double xjoint = xv(num_face_joint, 0) ;
-          double yjoint = xv(num_face_joint, 1) ;
-          double zjoint = xv(num_face_joint, 2) ;
-
-          ori = orientation(num_face_joint);
-
-          for (int n_bord=0; n_bord<domaine_VDF.nb_front_Cl(); n_bord++)
-            {
-              const Cond_lim& la_cl = domaine_Cl_VDF.les_conditions_limites(n_bord);
-              if ( (sub_type(Dirichlet,la_cl.valeur()))   ||  (sub_type(Dirichlet_homogene,la_cl.valeur())))
-                {
-                  const Front_VF& le_bord = ref_cast(Front_VF,la_cl.frontiere_dis());
-                  int ndeb = le_bord.num_premiere_face();
-                  int nfin = ndeb + le_bord.nb_faces();
-
-                  for ( int num_face=ndeb; num_face<nfin; num_face++)
-                    {
-                      if (ori==1 and fabs(xjoint-xv(num_face,0)) <1e-8 and fabs(zjoint-xv(num_face,2)) <1e-8)
-                        {
-                          y_plus_wall(num_face_joint,1) = y_plus_wall(num_face,1);
-                          xp_paroi(num_face_joint,1) = xp_paroi(num_face,1);
-                        }
-                      if (ori==2 and fabs(xjoint-xv(num_face,0)) <1e-8 and fabs(yjoint-xv(num_face,1)) <1e-8)
-                        {
-                          y_plus_wall(num_face_joint,2) = y_plus_wall(num_face,2);
-                          xp_paroi(num_face_joint,2) = xp_paroi(num_face,2);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-
-  MD_Vector_tools::echange_espace_virtuel(y_plus_wall, MD_Vector_tools::EV_SOMME_ECHANGE);
-  MD_Vector_tools::echange_espace_virtuel(xp_paroi, MD_Vector_tools::EV_SOMME_ECHANGE);
-
+//  auto start3 = high_resolution_clock::now();
+//  cout << "applying NN..." << endl;
   //  init of lambda and T arrays
   lambda.resize(5);
   T.resize(11);
   for (int i=0; i<11; i++)
     T[i].resize(6);
+  T_used.resize(T_list_.size());
 
-  if ( std::find(T_list.begin(), T_list.end(), 0) != T_list.end() )
+  if ( std::find(T_list_.begin(), T_list_.end(), 0) != T_list_.end() )
     {
       T[0][0] = 1./3.;
       T[0][1] = 0.;
@@ -1225,7 +1460,6 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
       T[0][5] = 0.;
     }
 
-  static bool executed = false;  // Static variable to track execution
   for (int elem=0; elem<nelem_; elem++)
     {
 
@@ -1253,174 +1487,262 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_TBNN_carre(DoubleTab& r
             }
         }
 
-      x_elem = xp(elem, 0) ; // x=0
+
+      for (size_t idx = 0; idx < T_list_.size(); ++idx)
+        {
+          int T_index = T_list_[idx];
+          if (static_cast<size_t>(T_index) < T.size())
+            {
+              T_used[idx] = T[T_index];
+//              cout << "T_used[" << idx << "] (from T[" << T_index << "]): "<< endl;
+            }
+          else
+            {
+              cerr << "Index " << T_index << " out of bounds for T vector." << endl;
+            }
+        }
+
+//      x_elem = xp(elem, 0) ; // x=0
       y_elem = xp(elem, 1) ; // y=1
       z_elem = xp(elem, 2) ; // z=2
-
-      position_base = -1;
-      position_gauche = -1;
-
-      for (int n_bord=0; n_bord<domaine_VDF.nb_front_Cl(); n_bord++)
-        {
-          const Cond_lim& la_cl = domaine_Cl_VDF.les_conditions_limites(n_bord);
-
-          if ( (sub_type(Dirichlet,la_cl.valeur()))   ||  (sub_type(Dirichlet_homogene,la_cl.valeur())))
-            {
-              const Front_VF& le_bord = ref_cast(Front_VF,la_cl.frontiere_dis());
-              int ndeb = le_bord.num_premiere_face();
-              int nfin = ndeb + le_bord.nb_faces();
-
-              for ( int num_face=ndeb; num_face<nfin; num_face++)
-                {
-                  ori = orientation(num_face);
-                  if (ori==1 and fabs(x_elem-xv(num_face,0)) <1e-8 and fabs(z_elem-xv(num_face,2)) <1e-8)
-                    position_base = num_face;
-                  if (ori==2 and fabs(x_elem-xv(num_face,0)) <1e-8 and fabs(y_elem-xv(num_face,1)) <1e-8)
-                    position_gauche = num_face;
-                }
-            }
-        }
-
-      if (position_base==-1 or position_gauche==-1)
-        {
-          for (int njoint=0; njoint<nb_joints; njoint++)
-            {
-
-              const Joint& joint = domaine_VDF.domaine().joint(njoint);
-              const IntTab& indices_faces_joint = joint.joint_item(Joint::FACE).renum_items_communs();
-              const int nfaces = indices_faces_joint.dimension(0);
-
-
-              for (int j = 0; j < nfaces; j++)
-                {
-                  int num_face = indices_faces_joint(j, 1);
-                  ori = orientation(num_face);
-                  if (ori==1 and fabs(x_elem-xv(num_face,0)) <1e-8 and fabs(z_elem-xv(num_face,2)) <1e-8)
-                    position_base = num_face;
-                  if (ori==2 and fabs(x_elem-xv(num_face,0)) <1e-8 and fabs(y_elem-xv(num_face,1)) <1e-8)
-                    position_gauche = num_face;
-                }
-            }
-        }
-
-      assert(position_base!=-1 && position_gauche!=-1);
-      assert(y_plus_wall(position_base,1) > 0. && y_plus_wall(position_gauche,2) > 0.);
-      y_maille_paroi = xp_paroi(position_base,1);
-      z_maille_paroi = xp_paroi(position_gauche,2);
-      y_plus = compute_y_plus(y_plus_wall(position_base,1),y_maille_paroi, y_elem+1);
-      z_plus = compute_y_plus(y_plus_wall(position_gauche,2),z_maille_paroi, z_elem+1	);
-      Re_t = compute_Re_t(y_plus_wall(position_base,1),y_maille_paroi);
-
+      y_plus = (y_elem + 1)*u_t/nu;  //xp_paroi(position_base,1);
+      z_plus =  (z_elem + 1)*u_t/nu;
+      Re_t = u_t/nu;
+//      cout << "Re_t_RST=" << Re_t << endl;
       // prediction by neural network
-      if (!executed)
+//      start = high_resolution_clock::now();
+//      cout << "Making predictions on elem " << elem << "..." << endl;
+
+      b = tbnn->predict_carre(lambda, T_used, y_plus, z_plus, Re_t);
+
+      if (!keps_NN_applied)  // Check if the block has already been executed
         {
-          b = tbnn->predict_carre(lambda, T, y_plus, z_plus, Re_t);
-
-          // add realizability constraints
-//      int idx_diag[] = {0,3,5};
-//      int idx_nondiag[] = {1,2,4};
-//
-//      for (int i=0; i<3; i++ )
-//        {
-//          if (b[idx_diag[i]] < -1./3.)
-//            {
-//              b[idx_diag[i]] = -1./3.;
-//            }
-//          else if (b[idx_diag[i]] > 2./3.)
-//            {
-//              b[idx_diag[i]] = 2./3.;
-//            }
-//        }
-//
-//      for (int i=0; i<3; i++ )
-//        {
-//          if (b[idx_nondiag[i]] < -1./2.)
-//            {
-//              b[idx_nondiag[i]] = -1./2.;
-//            }
-//          else if (b[idx_nondiag[i]] > 1./2.)
-//            {
-//              b[idx_nondiag[i]] = 1./2.;
-//            }
-//        }
-
-          resu(elem,0,0) = b[0];
-          resu(elem,0,1) = b[1];
-          resu(elem,0,2) = b[2];
-          resu(elem,1,0) = b[1];
-          resu(elem,1,1) = b[3];
-          resu(elem,1,2) = b[4];
-          resu(elem,2,0) = b[2];
-          resu(elem,2,1) = b[4];
-          resu(elem,2,2) = b[5];
-
-          g1(elem) = tbnn->get_g1_carre();
-
-
-
-          for (int i = 1; i <= 10; ++i)
+          if (apply_keps_NN_)
             {
-              for (int j=0; j<6; j++)
-                {
-                  ofstream fileOUT("T" + std::to_string(i) + "_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
-                  fileOUT << T[i][j] << endl; // append "some stuff" to the end of the file
-                  fileOUT.close(); // close the file
-                }
+              tbnn_eps->canal_carre(true);
+              tbnn_k->canal_carre(true);
+              eps = tbnn_eps->predict_eps_carre(lambda, y_plus, z_plus, Re_t, K_eps(elem, 1));
+              k_ec = tbnn_k->predict_k_carre(lambda,  y_plus, z_plus, Re_t, K_eps(elem, 0));
+              resu_keps(elem, 0) = k_ec[0];
+              resu_keps(elem, 1) = eps[0];
             }
-          for (int j=0; j<5; j++)
+        }
+
+//      end = high_resolution_clock::now();
+//      duration = duration_cast<microseconds>(end - start).count();
+//      cout << "Time for making predictions " << duration << " microseconds" << endl;
+      // add realizability constraints
+      int idx_diag[] = {0,3,5};
+      int idx_nondiag[] = {1,2,4};
+
+      for (int i=0; i<3; i++ )
+        {
+          if (b[idx_diag[i]] < -1./3.)
             {
-              ofstream fileOUT0("l_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
-              fileOUT0 << lambda[j] << endl; // append "some stuff" to the end of the file
-              fileOUT0.close(); // close the file
+              b[idx_diag[i]] = -1./3.;
             }
-
-          ofstream fileOUT1("yp.dat", ios::app); // open filename.txt in append mod
-          fileOUT1 << y_plus << endl; // append "some stuff" to the end of the file
-          fileOUT1.close(); // close the file
-
-          ofstream fileOUT2("zp.dat", ios::app); // open filename.txt in append mod
-          fileOUT2 << z_plus << endl; // append "some stuff" to the end of the file
-          fileOUT2.close(); // close the file
-
-          ofstream fileOUT3("Re_t.dat", ios::app); // open filename.txt in append mod
-          fileOUT3 << Re_t << endl; // append "some stuff" to the end of the file
-          fileOUT3.close(); // close the file
-
-          ofstream fileOUT4("g1.dat", ios::app); // open filename.txt in append mod
-          fileOUT4 << g1(elem) << endl; // append "some stuff" to the end of the file
-          fileOUT4.close(); // close the file
-
-          for (int j=0; j<6; j++)
+          else if (b[idx_diag[i]] > 2./3.)
             {
-              ofstream fileOUT5("b_" + std::to_string(j) + ".dat", ios::app); // open filename.txt in append mod
-              fileOUT5 << b[j] << endl; // append "some stuff" to the end of the file
-              fileOUT5.close(); // close the file
+              b[idx_diag[i]] = 2./3.;
             }
+        }
 
-          tbnn->output_processed_data();
+      b[5] = -(b[0] + b[3]);
+
+      for (int i=0; i<3; i++ )
+        {
+          if (b[idx_nondiag[i]] < -1./2.)
+            {
+              b[idx_nondiag[i]] = -1./2.;
+            }
+          else if (b[idx_nondiag[i]] > 1./2.)
+            {
+              b[idx_nondiag[i]] = 1./2.;
+            }
+        }
+
+      resu(elem,0,0) = b[0];
+      resu(elem,0,1) = b[1];
+      resu(elem,0,2) = b[2];
+      resu(elem,1,0) = b[1];
+      resu(elem,1,1) = b[3];
+      resu(elem,1,2) = b[4];
+      resu(elem,2,0) = b[2];
+      resu(elem,2,1) = b[4];
+      resu(elem,2,2) = b[5];
+
+      g0(elem) = 0;
+      g1(elem) = 0;
+      g2(elem) = 0;
+      g3(elem) = 0;
+      g4(elem) = 0;
+      g5(elem) = 0;
+      g6(elem) = 0;
+      g7(elem) = 0;
+      g8(elem) = 0;
+      g9(elem) = 0;
+      g10(elem) = 0;
+
+      vector<DoubleTab*> g_map =
+      {
+        &g0, &g1, &g2, &g3, &g4, &g5, &g6, &g7, &g8, &g9, &g10
+      };
 
 
+      for (size_t idx_g = 0; idx_g < T_list_.size(); idx_g++)
+        {
+          int t_index = T_list_[idx_g];
+          (*g_map[t_index])(elem) = tbnn->get_g_carre()[idx_g];
         }
     }
-  executed = true;
 
   // save predictions and g1 values
+//  cout << "idt_1=" << idt_1 << endl;
+  if ((apply_keps_NN_) && (!keps_NN_applied))
+    {
+      KEps_true_ = resu_keps;
+      keps_NN_applied = true;
+    }
+
+  if ((apply_keps_DNS_) && (!keps_DNS_applied))
+    {
+//      const Domaine_dis_base& domaine_dis_base=eqn_transport_K_Eps_->inconnue().domaine_dis_base();
+      const IntTab& les_elems=domaine_VDF.domaine().les_elems();
+      int nb_som_elem=les_elems.dimension(1);
+
+      const int nn = eqn_transport_K_Eps_->inconnue().valeurs().dimension(0);
+      KEps_true_.resize(nn,2);
+      KEps_true_ = 0.;
+      assert(KEps_true_.dimension(0) == nelem_);
+      for (int ele=0; ele<nelem_; ele++)
+        {
+          for (int s=0; s<nb_som_elem; s++)
+            {
+              int sglob=les_elems(ele,s);
+              KEps_true_(ele,0)+=KEps_champ->valeurs()(sglob,0);
+              KEps_true_(ele,1)+=KEps_champ->valeurs()(sglob,1);
+            }
+        }
+      double inv_nb_som_elem=1./(nb_som_elem);
+      KEps_true_*=inv_nb_som_elem;
+      keps_DNS_applied = true;
+    }
+
+  if ((idt_1 == 0) || (idt_1 % idt_mettre_a_jour == 0))
+    {
+//      cout << "idt_1 in the loop=" << idt_1 << endl;
+      g0_ = g0;
+      g1_ = g1;
+      g2_ = g2;
+      g3_ = g3;
+      g4_ = g4;
+      g5_ = g5;
+      g6_ = g6;
+      g7_ = g7;
+      g8_ = g8;
+      g9_ = g9;
+      g10_ = g10;
+      if (idt_1==0)
+        {
+          Cout <<  "g1 updated by NN at time step " << idt_1 << " g1^{n} = g1^{n} "  << endl;
+        }
+
+      if (idt_1>0)
+        {
+          for (int elem=0; elem<nelem_; elem++)
+            {g1_(elem) = relax_g1 * g1(elem) + (1-relax_g1)* g1_avant_(elem);}
+          Cout <<  "g1 updated by NN at time step " << idt_1 << " g1^{n} = " << relax_g1 << " * g1^{n} " << " + (1-" << relax_g1 << ") * g1^{n-1} " << endl;
+        }
+
+      DoubleTab& bij_tab = modele_K_Eps_.valeur().get_bij();
+      for (int elem=0; elem<nelem_; elem++)
+        {
+          bij_tab(elem,0) = resu(elem,0,0); //b11
+          bij_tab(elem,1) = resu(elem,0,1); //b12
+          bij_tab(elem,2) = resu(elem,0,2); //b13
+          bij_tab(elem,3) = resu(elem,1,1); //b22
+          bij_tab(elem,4) = resu(elem,1,2); //b23
+          bij_tab(elem,5) = resu(elem,2,2); //b33
+
+        }
+      bij_ = resu;
+
+    }
+  idt_1 = idt_1 + 1;
+  g1_avant_ = g1_;
+
+}
+
+void Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_Nisizima()
+{
+  DoubleTab resu(nelem_,dimension,dimension);
+  DoubleTab g1(nelem_);
+  DoubleTab g2(nelem_);
+  DoubleTab g3(nelem_);
+  DoubleTab g4(nelem_);
+
+  const Domaine_dis& le_dom_dis = eqn_transport_K_Eps_.valeur().domaine_dis();
+  const Domaine_Cl_dis& le_dom_Cl_dis = eqn_transport_K_Eps_.valeur().domaine_Cl_dis();
+  const Champ_Don ch_visco=ref_cast(Fluide_base,eqn_transport_K_Eps_.valeur().milieu()).viscosite_cinematique();
+  const DoubleTab& tab_K_Eps = eqn_transport_K_Eps_->inconnue().valeurs();
+  const Modele_Fonc_Bas_Reynolds& mon_modele_fonc=ref_cast(Modele_turbulence_hyd_K_Eps,eqn_transport_K_Eps_->modele_turbulence()).associe_modele_fonction();
+
+  DoubleTrav Fmu;
+  Fmu.resize(nelem_);
+  mon_modele_fonc.Calcul_Fmu(Fmu,le_dom_dis,le_dom_Cl_dis,tab_K_Eps,ch_visco);
+  for (int elem=0; elem<nelem_; elem++)
+    {
+
+      g1(elem) = -0.09;
+      g2(elem) = -0.0324 * Fmu(elem);
+      g3(elem) = -0.1368 * Fmu(elem);
+      g4(elem) = 0.1872 * Fmu(elem);
+
+      for (int i=0; i<Objet_U::dimension; i++)
+        {
+          for (int j=0; j<Objet_U::dimension; j++)
+            {
+              resu(elem,i,j) = g1(elem)  * Fmu(elem) *  T1_etoile_(elem,i,j)
+                               + g2(elem) *  T2_etoile_(elem,i,j)
+                               + g3(elem) *  T3_etoile_(elem,i,j) + g4(elem) *  T4_etoile_(elem,i,j);
+            }
+        }
+    }
   g1_ = g1;
+  g2_ = g2;
+  g3_ = g3;
+  g4_ = g4;
 
   DoubleTab& bij_tab = modele_K_Eps_.valeur().get_bij();
   for (int elem=0; elem<nelem_; elem++)
     {
-      bij_tab(elem,0) = resu(elem,0,0); //b11
-      bij_tab(elem,1) = resu(elem,0,1); //b12
-      bij_tab(elem,2) = resu(elem,0,2); //b13
-      bij_tab(elem,3) = resu(elem,1,1); //b22
-      bij_tab(elem,4) = resu(elem,1,2); //b23
-      bij_tab(elem,5) = resu(elem,2,2); //b33
-
+      bij_tab(elem,0) = resu(elem,0,0);
+      bij_tab(elem,1) = resu(elem,0,1);
+      bij_tab(elem,2) = resu(elem,0,2);
+      bij_tab(elem,3) = resu(elem,1,1);
+      bij_tab(elem,4) = resu(elem,1,2);
+      bij_tab(elem,5) = resu(elem,2,2);
     }
-
   bij_ = resu;
+}
 
+DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_bij_NL_Nisizima(DoubleTab& resu)
+{
+  Calcul_bij_Nisizima();
+  resu = 0;
+
+  for (int elem=0; elem<nelem_; elem++)
+    {
+
+      for (int i=0; i<Objet_U::dimension; i++)
+        {
+          for (int j=0; j<Objet_U::dimension; j++)
+            {
+              resu(elem,i,j) = g2_(elem) *  T2_etoile_(elem,i,j)
+                               + g3_(elem) *  T3_etoile_(elem,i,j) + g4_(elem) *  T4_etoile_(elem,i,j);
+            }
+        }
+    }
   return resu;
 }
 
@@ -1434,33 +1756,4 @@ std::vector<double> Tenseur_Reynolds_Externe_VDF_Face::read_file(const std::stri
       vec.push_back(num);
     }
   return vec;
-}
-
-double Tenseur_Reynolds_Externe_VDF_Face::compute_alpha( double k, double eps, double dudy)
-{
-  double alpha;
-
-  alpha = k / (eps + 1e-15) * dudy;
-
-  return alpha;
-}
-
-
-double Tenseur_Reynolds_Externe_VDF_Face::compute_y_plus( double y_plus_wall, double h_maille_paroi, double h_elem)
-{
-  double y_plus;
-  y_plus = abs(y_plus_wall / h_maille_paroi * h_elem);
-
-  return y_plus;
-
-}
-
-double Tenseur_Reynolds_Externe_VDF_Face::compute_Re_t(double y_plus_wall, double h_maille_paroi)
-{
-  double Re_t;
-
-  Re_t = abs(y_plus_wall / h_maille_paroi * 1.0);
-
-  return Re_t;
-
 }

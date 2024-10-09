@@ -30,12 +30,14 @@
 #include <Param.h>
 #include <communications.h>
 #include <Fluide_base.h>
+#include <Champ_Face_VDF.h>
 #include <TRUSTTrav.h>
 #include <Champ_Uniforme.h>
 #include <TRUSTTab_parts.h>
 #include <Champ_Inc_P0_base.h>
 #include <Tenseur_Reynolds_Externe_VDF_Face.h>
-
+#include <Domaine_VDF.h>
+#include <Domaine_Cl_VDF.h>
 
 Implemente_instanciable(Modele_turbulence_hyd_K_Eps,"Modele_turbulence_hyd_K_Epsilon",Mod_turb_hyd_RANS);
 // XD k_epsilon mod_turb_hyd_rans k_epsilon -1 Turbulence model (k-eps).
@@ -144,6 +146,17 @@ void Modele_turbulence_hyd_K_Eps::discretiser()
   bij_.valeur().nommer("bij");
   champs_compris_.ajoute_champ(bij_);
 
+  Noms noms2(6);
+  noms2[0]="bij_NL_00";
+  noms2[1]="bij_NL_01";
+  noms2[2]="bij_NL_02";
+  noms2[3]="bij_NL_11";
+  noms2[4]="bij_NL_12";
+  noms2[5]="bij_NL_22";
+
+  dis.discretiser_champ("champ_elem",mon_equation->domaine_dis().valeur(),multi_scalaire,noms2,unit,6,mon_equation->schema_temps().temps_courant(),bij_NL_);
+  bij_NL_.valeur().nommer("bij_NL");
+  champs_compris_.ajoute_champ(bij_NL_);
 }
 
 /*! @brief Calcule la viscosite turbulente au temps demande.
@@ -179,11 +192,12 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
 
       is_initialized = 1;
     }
+
   const Champ_base& chK_Eps=eqn_transp_K_Eps().inconnue().valeur();
   Nom type=chK_Eps.que_suis_je();
-  const Domaine_Cl_dis& le_dom_Cl_dis = eqn_transp_K_Eps().domaine_Cl_dis();
   const DoubleTab& tab_K_Eps = chK_Eps.valeurs();
   DoubleTab& visco_turb =  la_viscosite_turbulente.valeurs();
+  DoubleTrav Fmu;
 
 //  K_Eps(i,0) = K au noeud i
 //  K_Eps(i,1) = Epsilon au noeud i
@@ -200,87 +214,39 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
         }
     }
 
-  DoubleTrav Fmu,D(tab_K_Eps.dimension_tot(0));
-  D=0;
-  int is_modele_fonc=(mon_modele_fonc.non_nul());
-  //is_modele_fonc=0;
-  int is_Cmu_constant = mon_modele_fonc.Calcul_is_Cmu_constant();
-
   if (tenseur_de_Reynolds_externe_)
     {
       // Cerr<< " On utilise un Cmu non constant donne par le reseau de neurones (qui supplante eventuellement le Cmu non constant du modele fonctionnel) "<< finl;
       const DoubleTab& g1 = get_source_tenseur_de_Reynolds_NN( ).get_g1( );
       for (int i=0; i<n; i++)
         {
-          if (LeCmu_champ.non_nul() && is_initialized)
-            {
-              // Cerr<< " On utilise Cmu du champ DNS " << finl;
-              Cmu_.valeurs()[i] = LeCmu_tab(i,0);
-              is_Cmu_constant = 0;
-
-            }
-          else
-            {
-              //Cerr<< " On utilise Cmu du réseau " << finl;
-              Cmu_.valeurs()[i] = abs( g1( i ));
-              //Cmu_.valeurs()[i] = 0.09;
-              is_Cmu_constant = 0;
-            }
-
+          Cmu_.valeurs()[i] = abs( g1( i ));
         }
-
     }
+  if (LeCmu_champ.non_nul() && is_initialized)
+    {
+      for (int i=0; i<n; i++)
+        {
+          Cmu_.valeurs()[i] = LeCmu_tab(i,0);
+        }
+    }
+
+  int is_modele_fonc=(mon_modele_fonc.non_nul());
   if (is_modele_fonc)
     {
-      // pour avoir nu en incompressible et mu en QC
-      // et non comme on a divise K et eps par rho (si on est en QC)
-      // on veut toujours nu
-      //Cerr<< " On calucule la viscosité turbulente avec un modele_fonc"<< finl;
-      const Champ_Don ch_visco=ref_cast(Fluide_base,eqn_transp_K_Eps().milieu()).viscosite_cinematique();
-      //const Champ_Don& ch_visco_cin =ref_cast(Fluide_base,eqn_transp_K_Eps().milieu()).viscosite_cinematique();
-      // const Champ_Don& ch_visco_cin_ou_dyn =((const Op_Diff_K_Eps&) eqn_transp_K_Eps().operateur(0)).diffusivite();
-
-      //const DoubleTab& tab_visco = ch_visco_cin->valeurs();
-      //      const DoubleTab& tab_visco = ch_visco.valeurs();
-      Fmu.resize(tab_K_Eps.dimension_tot(0));
       const Domaine_dis& le_dom_dis = eqn_transp_K_Eps().domaine_dis();
+      const Domaine_Cl_dis& le_dom_Cl_dis = eqn_transp_K_Eps().domaine_Cl_dis();
+      const Champ_Don ch_visco=ref_cast(Fluide_base,eqn_transp_K_Eps().milieu()).viscosite_cinematique();
+      Fmu.resize(tab_K_Eps.dimension_tot(0));
 
       mon_modele_fonc.Calcul_Fmu( Fmu,le_dom_dis,le_dom_Cl_dis,tab_K_Eps,ch_visco);
-      /*const DoubleTab& vit = eqn_transp_K_Eps().probleme().equation(0).inconnue().valeurs();
-      D=Fmu;
-      D=0;
-      if (0)
-        mon_modele_fonc.Calcul_D(D,le_dom_dis,eqn_transp_K_Eps().domaine_Cl_dis(),vit,tab_K_Eps,ch_visco_cin);
-
-      if (is_Cmu_constant==0)
-        {
-          Cerr<< " On utilise un Cmu non constant "<< finl;
-          const DoubleTab& vitesse = mon_equation->inconnue().valeurs();
-          mon_modele_fonc.Calcul_Cmu(Cmu_.valeurs(), le_dom_dis, le_dom_Cl_dis,
-                                     vitesse, tab_K_Eps, LeEPS_MIN);
-
-          Nom lp=eqn_transp_K_Eps().modele_turbulence().loi_paroi().valeur().que_suis_je();
-          if (lp!="negligeable_VEF")
-            {
-              DoubleTab visco_tab(visco_turb.dimension_tot(0));
-              assert(sub_type(Champ_Uniforme,ch_visco_cin.valeur()));
-              visco_tab = tab_visco(0,0);
-              const int idt =  mon_equation->schema_temps().nb_pas_dt();
-              const DoubleTab& tab_paroi = loi_paroi().valeur().Cisaillement_paroi();
-              mon_modele_fonc.Calcul_Cmu_Paroi(Cmu_.valeurs(), le_dom_dis, le_dom_Cl_dis,visco_tab, visco_turb, tab_paroi, idt,
-                                               vitesse, tab_K_Eps, LeEPS_MIN);
-            }
-        }
-
-      */
-
     }
-
 
   // dans le cas d'un domaine nul on doit effectuer le dimensionnement
   double non_prepare=1;
   Debog::verifier("Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente la_viscosite_turbulente before",la_viscosite_turbulente.valeurs());
   Debog::verifier("Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente tab_K_Eps",tab_K_Eps);
+  Debog::verifier("Modele_turbulence_hyd_K_Eps_Bas_Reynolds::calculer_viscosite_turbulente Fmu",Fmu);
   if (visco_turb.size() == n)
     non_prepare=0.;
   non_prepare=mp_max(non_prepare);
@@ -313,31 +279,29 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
       // Debog::verifier("Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente visco_turb_K_eps before",visco_turb_K_eps);
       for (int i=0; i<n; i++)
         {
-          if (tab_K_Eps(i,1) <= LeEPS_MIN)
-            visco_turb_K_eps[i] = 0;
-          else
+          if (tenseur_de_Reynolds_externe_)
             {
-              if (tenseur_de_Reynolds_externe_)
+              if (get_source_tenseur_de_Reynolds_NN( ).get_Nisizima())
                 {
-                  //Cerr << "Calculate turbulent viscosity by Cmu given by -g1" << finl;
-                  visco_turb_K_eps[i] = Cmu_.valeurs()[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
-                }
-              else if (is_modele_fonc)
-                {
-                  //int is_Cmu_constant = mon_modele_fonc.Calcul_is_Cmu_constant();
-                  if (is_Cmu_constant)
-                    {
-                      visco_turb_K_eps[i] = Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
-                    }
-
-                  else
-                    {
-                      visco_turb_K_eps[i] = Fmu(i)*Cmu_.valeurs()(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
-                    }
+//                  cout << "nut computed with Nisizima" << endl;
+                  visco_turb_K_eps[i] =Cmu_.valeurs()[i]*Fmu(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+1e-20);
                 }
               else
-                visco_turb_K_eps[i] = LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
+                {
+                  visco_turb_K_eps[i] =Cmu_.valeurs()[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+1e-20);
+                }
             }
+
+          else if (LeCmu_champ.non_nul() && is_initialized)
+            {
+              visco_turb_K_eps[i] =Cmu_.valeurs()[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+1e-20);
+            }
+          else if (is_modele_fonc)
+            {
+              visco_turb_K_eps[i] = Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+1e-20);
+            }
+          else
+            visco_turb_K_eps[i] =LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+1e-20);
         }
       // Debog::verifier("Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente visco_turb_K_eps after",visco_turb_K_eps);
 
@@ -352,39 +316,30 @@ Champ_Fonc& Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente(double te
       //Cerr << "non_prepare=0" << finl;
       for (int i=0; i<n; i++)
         {
-          if (tab_K_Eps(i,1) <= LeEPS_MIN)
+          if (tenseur_de_Reynolds_externe_)
             {
-              //Cerr << "eps < eps min !!!!!!!!!!" << finl;
-              visco_turb[i] = 0;
-            }
-          else
-            {
-              if (tenseur_de_Reynolds_externe_)
+              if (get_source_tenseur_de_Reynolds_NN( ).get_Nisizima())
                 {
-                  //Cerr << "Calculate turbulent viscosity by Cmu given by -g1" << finl;
-                  //visco_turb[i] = LeCmu_tab(i,0)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
-                  visco_turb[i] =Cmu_.valeurs()[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
-
-                }
-              else if (is_modele_fonc)
-                {
-                  if (is_Cmu_constant)
-                    {
-                      visco_turb[i] =Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i)+1e-20);
-                    }
-                  else
-                    {
-                      visco_turb[i] =Fmu(i)*Cmu_.valeurs()(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i)+1e-20);
-                    }
+//                  cout << "nut computed with Nisizima" << endl;
+                  visco_turb[i] =Cmu_.valeurs()[i]*Fmu(i)*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+1e-20);
                 }
               else
-                visco_turb[i] = LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+D(i));
+                {
+                  visco_turb[i] =Cmu_.valeurs()[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+1e-20);
+                }
             }
+          else if (LeCmu_champ.non_nul() && is_initialized)
+            {
+              visco_turb[i] =Cmu_.valeurs()[i]*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+1e-20);
+            }
+          else if (is_modele_fonc)
+            {
+              visco_turb[i] = Fmu(i)*LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+1e-20);
+            }
+          else
+            visco_turb[i] =LeCmu*tab_K_Eps(i,0)*tab_K_Eps(i,0)/(tab_K_Eps(i,1)+1e-20);
         }
     }
-
-  //  Cout << "Modele turbulence " << visco_turb[20] << " " << Cmu[20] << " " << tab_K_Eps(20,0) << " " << tab_K_Eps(20,1) << finl;
-
 
   la_viscosite_turbulente.changer_temps(temps);
   Debog::verifier("Modele_turbulence_hyd_K_Eps::calculer_viscosite_turbulente la_viscosite_turbulente after",la_viscosite_turbulente.valeurs());
@@ -635,4 +590,208 @@ void Modele_turbulence_hyd_K_Eps::verifie_loi_paroi()
         Cerr<<"must not be used with a wall law of type negligeable or with a modele_function."<<finl;
         Cerr<<"Another wall law must be selected with this kind of turbulence model."<<finl;
       }
+}
+
+void Modele_turbulence_hyd_K_Eps::Calcul_RSLambda()
+{
+//  Cout << "calling Calcul_RSLambda " << endl;
+  const Domaine_Cl_dis& le_dom_Cl_dis = eqn_transport_K_Eps.domaine_Cl_dis();
+  const Domaine_dis& domaine_dis = le_dom_Cl_dis.valeur().domaine_dis();
+
+  const Domaine_VDF& domaine_VDF = ref_cast(Domaine_VDF,domaine_dis.valeur());
+  const Domaine_Cl_VDF& dom_Cl_VDF = ref_cast(Domaine_Cl_VDF,le_dom_Cl_dis.valeur());
+
+  int nb_elem_tot=domaine_VDF.nb_elem_tot();
+  const DoubleTab& vitesse = mon_equation->inconnue().valeurs();
+  Champ_Face_VDF& ch = ref_cast(Champ_Face_VDF,mon_equation->inconnue().valeur());
+
+  assert (vitesse.line_size() == 1);
+
+  DoubleTab gij(nb_elem_tot,dimension,dimension, vitesse.line_size());
+  ch.calcul_duidxj( vitesse,gij,dom_Cl_VDF );
+
+
+  DoubleTab& lambda_1 = get_l1();
+  DoubleTab& lambda_2 = get_l2();
+  DoubleTab& lambda_3 = get_l3();
+  DoubleTab& lambda_4 = get_l4();
+  DoubleTab& lambda_5 = get_l5();
+
+  const DoubleTab& K_eps = eqn_transport_K_Eps.inconnue().valeurs();
+
+  DoubleTab S_etoile(nb_elem_tot,dimension,dimension);
+  DoubleTab R_etoile(nb_elem_tot,dimension,dimension);
+
+  DoubleTab S2(nb_elem_tot,dimension,dimension);
+  DoubleTab R2(nb_elem_tot,dimension,dimension);
+  DoubleTab RS(nb_elem_tot,dimension,dimension);
+  DoubleTab SR(nb_elem_tot,dimension,dimension);
+
+  DoubleTab S3(nb_elem_tot,dimension,dimension);
+  DoubleTab R2S(nb_elem_tot,dimension,dimension);
+  DoubleTab RS2(nb_elem_tot,dimension,dimension);
+  DoubleTab S2R(nb_elem_tot,dimension,dimension);
+  DoubleTab SR2(nb_elem_tot,dimension,dimension);
+
+  DoubleTab R2S2(nb_elem_tot,dimension,dimension);
+  DoubleTab S2R2(nb_elem_tot,dimension,dimension);
+  DoubleTab SRS2(nb_elem_tot,dimension,dimension);
+  DoubleTab R2SR(nb_elem_tot,dimension,dimension);
+  DoubleTab RSR2(nb_elem_tot,dimension,dimension);
+  DoubleTab S2RS(nb_elem_tot,dimension,dimension);
+
+  DoubleTab RS2R2(nb_elem_tot,dimension,dimension);
+  DoubleTab R2S2R(nb_elem_tot,dimension,dimension);
+
+  DoubleTab L1Id(nb_elem_tot,dimension,dimension);
+  DoubleTab L2Id(nb_elem_tot,dimension,dimension);
+  DoubleTab L4Id(nb_elem_tot,dimension,dimension);
+  DoubleTab L5Id(nb_elem_tot,dimension,dimension);
+
+  DoubleTab tab_zero(nb_elem_tot,dimension,dimension);
+
+  for (int elem=0; elem<domaine_VDF.nb_elem(); elem++)
+    {
+
+      double k_sur_eps = K_eps(elem,0) / ( K_eps(elem,1) + 1.e-15 );
+
+      lambda_1(elem) = 0.;
+      lambda_2(elem) = 0.;
+      lambda_3(elem) = 0.;
+      lambda_4(elem) = 0.;
+      lambda_5(elem) = 0.;
+
+      for (int i=0; i<Objet_U::dimension; i++)
+        for (int j=0; j<Objet_U::dimension; j++)
+          {
+            tab_zero(elem, i, j) = 0.;
+            S_etoile(elem,i,j) = 0.5*( gij(elem,i,j,0) + gij(elem,j,i,0) ) * k_sur_eps;
+            R_etoile(elem,i,j) = 0.5*( gij(elem,i,j,0) - gij(elem,j,i,0) ) * k_sur_eps;
+          }
+
+      for (int i=0; i<Objet_U::dimension; i++)
+        for (int j=0; j<Objet_U::dimension; j++)
+          {
+            S2(elem,i,j)   = 0.;
+            R2(elem,i,j)   = 0.;
+            SR(elem,i,j)   = 0.;
+            RS(elem,i,j)   = 0.;
+            L1Id(elem,i,j) = 0.;
+            L2Id(elem,i,j) = 0.;
+
+            for (int k=0; k<Objet_U::dimension; k++)
+              {
+                S2(elem,i,j) +=  S_etoile(elem,i,k)*S_etoile(elem,k,j) ;
+                R2(elem,i,j) +=  R_etoile(elem,i,k)*R_etoile(elem,k,j) ;
+                SR(elem,i,j) +=  S_etoile(elem,i,k)*R_etoile(elem,k,j) ;
+                RS(elem,i,j) +=  R_etoile(elem,i,k)*S_etoile(elem,k,j) ;
+              }
+
+            if (i==j)
+              {
+                lambda_1(elem) += S2(elem,i,j);
+                lambda_2(elem) += R2(elem,i,j);
+              }
+          }
+
+      for (int i=0; i<Objet_U::dimension; i++)
+        for (int j=0; j<Objet_U::dimension; j++)
+          {
+            if (i==j)
+              {
+                L1Id(elem,i,j) = lambda_1(elem)/3.;
+                L2Id(elem,i,j) = lambda_2(elem)/3.;
+              }
+          }
+
+      for (int i=0; i<Objet_U::dimension; i++)
+        for (int j=0; j<Objet_U::dimension; j++)
+          {
+            S3(elem,i,j)   = 0.;
+            R2S(elem,i,j)  = 0.;
+            RS2(elem,i,j)  = 0.;
+            S2R(elem,i,j)  = 0.;
+            SR2(elem,i,j)  = 0.;
+            L4Id(elem,i,j) = 0.;
+
+            for (int k=0; k<Objet_U::dimension; k++)
+              {
+                S3(elem,i,j)  +=  S_etoile(elem,i,k)*S2(elem,k,j) ;
+                R2S(elem,i,j) +=  R2(elem,i,k)*S_etoile(elem,k,j) ;
+                RS2(elem,i,j) +=  R_etoile(elem,i,k)*S2(elem,k,j) ;
+                S2R(elem,i,j) +=  S2(elem,i,k)*R_etoile(elem,k,j) ;
+                SR2(elem,i,j) +=  S_etoile(elem,i,k)*R2(elem,k,j) ;
+              }
+
+            if (i==j)
+              {
+                lambda_3(elem) += S3(elem,i,j);
+                lambda_4(elem) += R2S(elem,i,j);
+              }
+          }
+
+      for (int i=0; i<Objet_U::dimension; i++)
+        for (int j=0; j<Objet_U::dimension; j++)
+          {
+            if (i==j)
+              {
+                L4Id(elem,i,j) = lambda_4(elem)*2./3.;
+              }
+          }
+
+      for (int i=0; i<Objet_U::dimension; i++)
+        for (int j=0; j<Objet_U::dimension; j++)
+          {
+            S2R2(elem,i,j) = 0.;
+            R2S2(elem,i,j) = 0.;
+            SRS2(elem,i,j) = 0.;
+            R2SR(elem,i,j) = 0.;
+            RSR2(elem,i,j) = 0.;
+            S2RS(elem,i,j) = 0.;
+            L5Id(elem,i,j) = 0.;
+
+            for (int k=0; k<Objet_U::dimension; k++)
+              {
+                S2R2(elem,i,j) +=  S2(elem,i,k)*R2(elem,k,j) ;
+                R2S2(elem,i,j) +=  R2(elem,i,k)*S2(elem,k,j) ;
+                SRS2(elem,i,j) +=  SR(elem,i,k)*S2(elem,k,j) ;
+                R2SR(elem,i,j) +=  R2(elem,i,k)*SR(elem,k,j) ;
+                RSR2(elem,i,j) +=  RS(elem,i,k)*R2(elem,k,j) ;
+                S2RS(elem,i,j) +=  S2(elem,i,k)*RS(elem,k,j) ;
+              }
+
+            if (i==j)
+              {
+                lambda_5(elem) += R2S2(elem,i,j);
+              }
+          }
+
+      for (int i=0; i<Objet_U::dimension; i++)
+        for (int j=0; j<Objet_U::dimension; j++)
+          {
+            if (i==j)
+              {
+                L5Id(elem,i,j) = lambda_5(elem)*2./3.;
+              }
+          }
+
+      for (int i=0; i<Objet_U::dimension; i++)
+        for (int j=0; j<Objet_U::dimension; j++)
+          {
+            RS2R2(elem,i,j) = 0.;
+            R2S2R(elem,i,j) = 0.;
+            for (int k=0; k<Objet_U::dimension; k++)
+              {
+                RS2R2(elem,i,j) +=  RS2(elem,i,k)*R2(elem,k,j) ;
+                R2S2R(elem,i,j) +=  R2(elem,i,k)*S2R(elem,k,j) ;
+              }
+          }
+    }
+
+  lambda_1_etoile_ = lambda_1;
+  lambda_2_etoile_ = lambda_2;
+  lambda_3_etoile_ = lambda_3;
+  lambda_4_etoile_ = lambda_4;
+  lambda_5_etoile_ = lambda_5;
+
 }

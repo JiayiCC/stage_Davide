@@ -24,6 +24,7 @@
 
 #include <Transport_K_Eps.h>
 #include <Modele_Fonc_Bas_Reynolds.h>
+#include <Tenseur_Reynolds_Externe_VDF_Face.h>
 #include <Champ_Don.h>
 
 //////////////////////////////////////////////////////////////////////////////
@@ -58,8 +59,6 @@ public:
   inline const Transport_K_Eps_base& eqn_transp_K_Eps() const override;
   const Equation_base& equation_k_eps(int) const override ;
 
-
-
   const Champ_base& get_champ(const Motcle& nom) const override;
   void get_noms_champs_postraitables(Noms& nom,Option opt=NONE) const override;
 
@@ -69,11 +68,20 @@ public:
   }
 //  inline void set_bij(const DoubleTab& bij);
   inline DoubleTab& get_bij();
+  inline DoubleTab& get_bij_NL();
   inline DoubleTab& get_l1();
   inline DoubleTab& get_l2();
   inline DoubleTab& get_l3();
   inline DoubleTab& get_l4();
   inline DoubleTab& get_l5();
+
+  void Calcul_RSLambda();
+
+  inline DoubleTab& lambda_1_etoile();
+  inline DoubleTab& lambda_2_etoile();
+  inline DoubleTab& lambda_3_etoile();
+  inline DoubleTab& lambda_4_etoile();
+  inline DoubleTab& lambda_5_etoile();
 
 protected:
   Transport_K_Eps  eqn_transport_K_Eps;
@@ -81,9 +89,15 @@ protected:
 
   Champ_Don LeCmu_champ;
   DoubleTab LeCmu_tab;
-  Champ_Fonc Cmu_, bij_;
+  Champ_Fonc Cmu_, bij_, bij_NL_;
   Champ_Fonc lambda1_, lambda2_, lambda3_, lambda4_, lambda5_;
   int is_initialized = 0;
+
+  DoubleTab lambda_1_etoile_;
+  DoubleTab lambda_2_etoile_;
+  DoubleTab lambda_3_etoile_;
+  DoubleTab lambda_4_etoile_;
+  DoubleTab lambda_5_etoile_;
 };
 
 //inline void Modele_turbulence_hyd_K_Eps::set_bij(const DoubleTab& bij)
@@ -94,6 +108,11 @@ protected:
 inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_bij()
 {
   return bij_.valeurs();
+}
+
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_bij_NL()
+{
+  return bij_NL_.valeurs();
 }
 
 inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_l1()
@@ -119,6 +138,30 @@ inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_l4()
 inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_l5()
 {
   return lambda5_.valeurs();
+}
+
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::lambda_1_etoile()
+{
+  return lambda_1_etoile_;
+}
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::lambda_2_etoile()
+{
+  return lambda_2_etoile_;
+}
+
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::lambda_3_etoile()
+{
+  return lambda_3_etoile_;
+}
+
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::lambda_4_etoile()
+{
+  return lambda_4_etoile_;
+}
+
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::lambda_5_etoile()
+{
+  return lambda_5_etoile_;
 }
 
 // Description:

@@ -60,17 +60,20 @@ public:
   DoubleTab& calculer(DoubleTab& ) const override;
   void mettre_a_jour(double ) override;
   void completer() override;
-
-  double compute_alpha( double k, double eps, double dudy);
-  double compute_y_plus( double y_plus_wall, double h_maille_paroi, double h_elem);
-  double compute_Re_t(double y_plus_wall, double h_maille_paroi);
-
-
+  void Calcul_RSLambdaT();
   const DoubleTab& get_bij() const;
+  const DoubleTab& get_bij_NL() const;
   const DoubleTab& get_g1() const ;
+  inline bool get_Nisizima() const ;
+  inline void only_g1( bool val );
+  inline void apply_keps_NN( bool val );
+  inline void apply_keps_DNS( bool val );
+  inline void apply_Nisizima( bool val );
+  void set_param(Param& param);
 
 protected:
   void readNN();
+  void readNN_keps();
 
   REF(Navier_Stokes_Turbulent)           eqn_NS_;
   REF(Modele_turbulence_hyd_K_Eps)       modele_K_Eps_;
@@ -79,22 +82,38 @@ protected:
 
   REF(Domaine_VDF) le_dom_VDF;
   REF(Domaine_Cl_VDF) le_dom_Cl_VDF;
-  void associer_domaines(const Domaine_dis& ,const Domaine_Cl_dis& ) override;
+  Champ_Don KEps_champ;
 
-  void Calcul_RSLambda();
+  void associer_domaines(const Domaine_dis& ,const Domaine_Cl_dis& ) override;
   DoubleTab& Calcul_bij_TBNN(DoubleTab& resu);
-  DoubleTab& Calcul_bij_TBNN_carre(DoubleTab& resu);
+  void Calcul_bij_TBNN_carre();
   DoubleTab& Calcul_bij_NL_TBNN(DoubleTab& );
   DoubleTab& Calcul_bij_NL_TBNN_carre(DoubleTab& );
 //  DoubleTab& Calcul_Tenseur_Reynolds( DoubleTab& );
   DoubleTab& Calcul_Tenseur_Reynolds_NL( DoubleTab& );
+  DoubleTab& Calcul_bij_NL_Nisizima(DoubleTab& resu);
+  void Calcul_bij_Nisizima();
+  DoubleTab g0_;
+  DoubleTab g1_;
+  DoubleTab g2_;
+  DoubleTab g3_;
+  DoubleTab g4_;
+  DoubleTab g5_;
+  DoubleTab g6_;
+  DoubleTab g7_;
+  DoubleTab g8_;
+  DoubleTab g9_;
+  DoubleTab g10_;
+  DoubleTab bij_;
+  DoubleTab bij_NL_;
+  DoubleTab KEps_true_;
 
   DoubleTab lambda_1_etoile_;
   DoubleTab lambda_2_etoile_;
   DoubleTab lambda_3_etoile_;
   DoubleTab lambda_4_etoile_;
   DoubleTab lambda_5_etoile_;
-//
+  DoubleTab T0_etoile_;
   DoubleTab T1_etoile_;
   DoubleTab T2_etoile_;
   DoubleTab T3_etoile_;
@@ -105,20 +124,53 @@ protected:
   DoubleTab T8_etoile_;
   DoubleTab T9_etoile_;
   DoubleTab T10_etoile_;
-
-  DoubleTab g1_;
-  DoubleTab bij_;
+  std::vector<int> T_list_;
 
   int nelem_;
 
-//  bool stabilisateur_;
-//  fonction_stabilisatrice fonction_stabilisatrice_;
-
-  std::vector<int> T_list;
-
-  Nom nn_casename;                  // nom du reseau de neurones a charger
-  TBNN *tbnn;                       // objet reseau de neurones
+  int idt_mettre_a_jour=2147483647;
+  int idt_1=0;
+  int idt_2=0;
+  double t_stab=-4;
+  double T_stab=-1;
+  double relax_g1=1;
+  double relax_RST=1;
+  DoubleTab g1_avant_;
+  DoubleTab s_avant_;
+  Nom nn_casename, nn_casename_k, nn_casename_eps;                   // nom du reseau de neurones a charger
+  TBNN *tbnn, *tbnn_k, *tbnn_eps;                        // objet reseau de neurones
   std::vector<double> read_file(const std::string& filename);
+  bool is_only_g1_=false;
+  bool apply_keps_DNS_=false;
+  bool apply_keps_NN_=false;
+  bool keps_NN_applied=false;
+  bool keps_DNS_applied=false;
+  bool apply_Nisizima_=false;
 };
+
+inline void Tenseur_Reynolds_Externe_VDF_Face::only_g1( bool val )
+{
+  is_only_g1_ = val;
+}
+
+inline void Tenseur_Reynolds_Externe_VDF_Face::apply_keps_NN( bool val )
+{
+  apply_keps_NN_ = val;
+}
+
+inline void Tenseur_Reynolds_Externe_VDF_Face::apply_keps_DNS( bool val )
+{
+  apply_keps_DNS_ = val;
+}
+
+inline void Tenseur_Reynolds_Externe_VDF_Face::apply_Nisizima( bool val )
+{
+  apply_Nisizima_ = val;
+}
+
+inline bool Tenseur_Reynolds_Externe_VDF_Face::get_Nisizima() const
+{
+  return apply_Nisizima_;
+}
 
 #endif

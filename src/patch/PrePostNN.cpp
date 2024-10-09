@@ -51,27 +51,69 @@ PrePostNN::PrePostNN(string filename)
 		tag = "ALPHA_MAX:";
 		npos = buffer.find(tag);
 		if(npos != string::npos) alpha_max = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "ALPHA_KEPS_MAX:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) alpha_keps_max = ReadOneDataFromLine(buffer,tag,npos);
 		tag = "PP_ALPHA:";
 		npos = buffer.find(tag);
 		if(npos != string::npos) ppalpha = ReadPPAlphaFromLine(buffer,tag,npos);
+		tag = "PP_ALPHA_KEPS:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppalpha_keps = ReadPPAlphaKEPSFromLine(buffer,tag,npos);
 		tag = "Y_PLUS_MAX_LOG:";
 		npos = buffer.find(tag);
 		if(npos != string::npos) y_plus_max_log = ReadOneDataFromLine(buffer,tag,npos);
 		tag = "PP_Y_PLUS:";
 		npos = buffer.find(tag);
 		if(npos != string::npos) ppy_plus = ReadPPYPlusFromLine(buffer,tag,npos);
+		tag = "Y_PLUS_KEPS_MAX_LOG:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) y_plus_keps_max_log = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "PP_Y_PLUS_KEPS:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppy_plus_keps = ReadPPYPlusKEPSFromLine(buffer,tag,npos);
 		tag = "RE_TAU_MAX:";
 		npos = buffer.find(tag);
 		if(npos != string::npos) Re_t_max = ReadOneDataFromLine(buffer,tag,npos);
-		tag = "PP_RE_TAU:";
+		tag = "RE_TAU_KEPS_MAX:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) Re_t_keps_max = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "PP_RE_TAU_RST:";
 		npos = buffer.find(tag);
 		if(npos != string::npos) ppre_tau = ReadPPReTauFromLine(buffer,tag,npos);
+		tag = "PP_RE_TAU_KEPS:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppre_tau_keps = ReadPPReTauKEPSFromLine(buffer,tag,npos);
 		tag = "PP_B:";
 		npos = buffer.find(tag);
 		if(npos != string::npos) ppb = ReadPPBFromLine(buffer,tag,npos);
 		tag = "NUM_T:";
 		npos = buffer.find(tag);
 		if(npos != string::npos) num_t = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "K_LS_MAX:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) k_input_max = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "PP_K_LS:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppk_input = ReadPPKinputFromLine(buffer,tag,npos);
+		tag = "EPS_LS_MAX:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) eps_input_max = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "PP_EPS_LS:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppeps_input = ReadPPEPSinputFromLine(buffer,tag,npos);
+		tag = "K_DNS_MAX:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) k_output_max = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "PP_K_DNS:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppk_output = ReadPPKoutputFromLine(buffer,tag,npos);
+		tag = "EPS_DNS_MAX:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) eps_output_max = ReadOneDataFromLine(buffer,tag,npos);
+		tag = "PP_EPS_DNS:";
+		npos = buffer.find(tag);
+		if(npos != string::npos) ppeps_output = ReadPPEPSoutputFromLine(buffer,tag,npos);
 		tag = "DATADIR:";
 		npos = buffer.find(tag);
 		if(npos != string::npos) datadir = ReadPPLFromLine(buffer,tag,npos);
@@ -208,6 +250,81 @@ enum pp_alpha PrePostNN::ReadPPAlphaFromLine(string buffer,string tag,size_t npo
   return(ret);
 }
 
+enum pp_alpha_keps PrePostNN::ReadPPAlphaKEPSFromLine(string buffer,string tag,size_t npos)
+{
+  string tmp;
+  size_t ltag;
+  enum pp_alpha_keps ret = INDEFALPHA_KEPS;
+
+  ltag = tag.length();
+  tmp = buffer.substr(npos+ltag,buffer.length()-ltag);
+  tmp.erase(remove(tmp.begin(), tmp.end(), ' '), tmp.end());
+
+  if( tmp.compare("MAXN") == 0 ) ret = MAXN_A_KEPS;
+
+  return(ret);
+}
+
+enum pp_k_input PrePostNN::ReadPPKinputFromLine(string buffer,string tag,size_t npos)
+{
+  string tmp;
+  size_t ltag;
+  enum pp_k_input ret = INDEFK_INPUT;
+
+  ltag = tag.length();
+  tmp = buffer.substr(npos+ltag,buffer.length()-ltag);
+  tmp.erase(remove(tmp.begin(), tmp.end(), ' '), tmp.end());
+
+  if( tmp.compare("MAXN") == 0 ) ret = MAXN_K_INPUT;
+
+  return(ret);
+}
+
+enum pp_eps_input PrePostNN::ReadPPEPSinputFromLine(string buffer,string tag,size_t npos)
+{
+  string tmp;
+  size_t ltag;
+  enum pp_eps_input ret = INDEFEPS_INPUT;
+
+  ltag = tag.length();
+  tmp = buffer.substr(npos+ltag,buffer.length()-ltag);
+  tmp.erase(remove(tmp.begin(), tmp.end(), ' '), tmp.end());
+
+  if( tmp.compare("MAXN") == 0 ) ret = MAXN_EPS_INPUT;
+
+  return(ret);
+}
+
+enum pp_k_output PrePostNN::ReadPPKoutputFromLine(string buffer,string tag,size_t npos)
+{
+  string tmp;
+  size_t ltag;
+  enum pp_k_output ret = INDEFK_OUTPUT;
+
+  ltag = tag.length();
+  tmp = buffer.substr(npos+ltag,buffer.length()-ltag);
+  tmp.erase(remove(tmp.begin(), tmp.end(), ' '), tmp.end());
+
+  if( tmp.compare("MAXN") == 0 ) ret = MAXN_K_OUTPUT;
+
+  return(ret);
+}
+
+enum pp_eps_output PrePostNN::ReadPPEPSoutputFromLine(string buffer,string tag,size_t npos)
+{
+  string tmp;
+  size_t ltag;
+  enum pp_eps_output ret = INDEFEPS_OUTPUT;
+
+  ltag = tag.length();
+  tmp = buffer.substr(npos+ltag,buffer.length()-ltag);
+  tmp.erase(remove(tmp.begin(), tmp.end(), ' '), tmp.end());
+
+  if( tmp.compare("MAXN") == 0 ) ret = MAXN_EPS_OUTPUT;
+
+  return(ret);
+}
+
 enum pp_y_plus PrePostNN::ReadPPYPlusFromLine(string buffer,string tag,size_t npos)
 {
   string tmp;
@@ -223,6 +340,21 @@ enum pp_y_plus PrePostNN::ReadPPYPlusFromLine(string buffer,string tag,size_t np
   return(ret);
 }
 
+enum pp_y_plus_keps PrePostNN::ReadPPYPlusKEPSFromLine(string buffer,string tag,size_t npos)
+{
+  string tmp;
+  size_t ltag;
+  enum pp_y_plus_keps ret = INDEFY_PLUS_KEPS;
+
+  ltag = tag.length();
+  tmp = buffer.substr(npos+ltag,buffer.length()-ltag);
+  tmp.erase(remove(tmp.begin(), tmp.end(), ' '), tmp.end());
+
+  if( tmp.compare("MAXLOG") == 0 ) ret = MAXLOG_KEPS;
+
+  return(ret);
+}
+
 enum pp_re_tau PrePostNN::ReadPPReTauFromLine(string buffer,string tag,size_t npos)
 {
   string tmp;
@@ -234,6 +366,21 @@ enum pp_re_tau PrePostNN::ReadPPReTauFromLine(string buffer,string tag,size_t np
   tmp.erase(remove(tmp.begin(), tmp.end(), ' '), tmp.end());
 
   if( tmp.compare("MAXN") == 0 ) ret = MAXN_RET;
+
+  return(ret);
+}
+
+enum pp_re_tau_keps PrePostNN::ReadPPReTauKEPSFromLine(string buffer,string tag,size_t npos)
+{
+  string tmp;
+  size_t ltag;
+  enum pp_re_tau_keps ret = INDEFRE_TAU_KEPS;
+
+  ltag = tag.length();
+  tmp = buffer.substr(npos+ltag,buffer.length()-ltag);
+  tmp.erase(remove(tmp.begin(), tmp.end(), ' '), tmp.end());
+
+  if( tmp.compare("MAXN") == 0 ) ret = MAXN_RET_KEPS;
 
   return(ret);
 }
