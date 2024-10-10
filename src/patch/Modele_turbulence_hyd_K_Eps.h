@@ -69,6 +69,7 @@ public:
 //  inline void set_bij(const DoubleTab& bij);
   inline DoubleTab& get_bij();
   inline DoubleTab& get_bij_NL();
+  inline DoubleTab& get_RST_NL();
   inline DoubleTab& get_l1();
   inline DoubleTab& get_l2();
   inline DoubleTab& get_l3();
@@ -89,7 +90,7 @@ protected:
 
   Champ_Don LeCmu_champ;
   DoubleTab LeCmu_tab;
-  Champ_Fonc Cmu_, bij_, bij_NL_;
+  Champ_Fonc Cmu_, bij_, bij_NL_, RST_NL_;
   Champ_Fonc lambda1_, lambda2_, lambda3_, lambda4_, lambda5_;
   int is_initialized = 0;
 
@@ -113,6 +114,11 @@ inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_bij()
 inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_bij_NL()
 {
   return bij_NL_.valeurs();
+}
+
+inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_RST_NL()
+{
+  return RST_NL_.valeurs();
 }
 
 inline DoubleTab& Modele_turbulence_hyd_K_Eps::get_l1()

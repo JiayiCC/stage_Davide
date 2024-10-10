@@ -128,12 +128,12 @@ void Modele_turbulence_hyd_K_Eps::discretiser()
 
   Noms noms(6);
   Noms unit(6);
-  noms[0]="bij_00";
-  noms[1]="bij_01";
-  noms[2]="bij_02";
-  noms[3]="bij_11";
-  noms[4]="bij_12";
-  noms[5]="bij_22";
+  noms[0]="b11";
+  noms[1]="b12";
+  noms[2]="b13";
+  noms[3]="b22";
+  noms[4]="b23";
+  noms[5]="b33";
 
   unit[0]="";
   unit[1]="";
@@ -147,16 +147,36 @@ void Modele_turbulence_hyd_K_Eps::discretiser()
   champs_compris_.ajoute_champ(bij_);
 
   Noms noms2(6);
-  noms2[0]="bij_NL_00";
-  noms2[1]="bij_NL_01";
-  noms2[2]="bij_NL_02";
-  noms2[3]="bij_NL_11";
-  noms2[4]="bij_NL_12";
-  noms2[5]="bij_NL_22";
+  noms[0]="b11_NL";
+  noms[1]="b12_NL";
+  noms[2]="b13_NL";
+  noms[3]="b22_NL";
+  noms[4]="b23_NL";
+  noms[5]="b33_NL";
 
   dis.discretiser_champ("champ_elem",mon_equation->domaine_dis().valeur(),multi_scalaire,noms2,unit,6,mon_equation->schema_temps().temps_courant(),bij_NL_);
   bij_NL_.valeur().nommer("bij_NL");
   champs_compris_.ajoute_champ(bij_NL_);
+
+  Noms noms3(6);
+  Noms unit3(6);
+  noms2[0]="-<u1'u1'>_NL";
+  noms2[1]="-<u1'u2'>_NL";
+  noms2[2]="-<u1'u3'>_NL";
+  noms2[3]="-<u2'u2'>_NL";
+  noms2[4]="-<u2'u3'>_NL";
+  noms2[5]="-<u3'u3'>_NL";
+
+  unit3[0]="m2/s2";
+  unit3[1]="m2/s2";
+  unit3[2]="m2/s2";
+  unit3[3]="m2/s2";
+  unit3[4]="m2/s2";
+  unit3[5]="m2/s2";
+
+  dis.discretiser_champ("champ_elem",mon_equation->domaine_dis().valeur(),multi_scalaire,noms3,unit3,6,mon_equation->schema_temps().temps_courant(),RST_NL_);
+  RST_NL_.valeur().nommer("RST_NL");
+  champs_compris_.ajoute_champ(RST_NL_);
 }
 
 /*! @brief Calcule la viscosite turbulente au temps demande.

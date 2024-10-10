@@ -497,6 +497,11 @@ const DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::get_bij_NL() const
   return bij_NL_;
 }
 
+const DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::get_RST_NL() const
+{
+  return RST_NL_;
+}
+
 const DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::get_g1() const
 {
   return g1_;
@@ -1089,6 +1094,17 @@ DoubleTab& Tenseur_Reynolds_Externe_VDF_Face::Calcul_Tenseur_Reynolds_NL(DoubleT
           }
     }
 
+  DoubleTab& RST_NL_tab = modele_K_Eps_.valeur().get_RST_NL();
+  for (int elem=0; elem<nelem_; elem++)
+    {
+      RST_NL_tab(elem,0) = resu(elem,0,0);
+      RST_NL_tab(elem,1) = resu(elem,0,1);
+      RST_NL_tab(elem,2) = resu(elem,0,2);
+      RST_NL_tab(elem,3) = resu(elem,1,1);
+      RST_NL_tab(elem,4) = resu(elem,1,2);
+      RST_NL_tab(elem,5) = resu(elem,2,2);
+    }
+  RST_NL_ = resu;
 
   return resu;
 }

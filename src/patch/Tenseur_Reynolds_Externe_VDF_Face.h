@@ -63,6 +63,7 @@ public:
   void Calcul_RSLambdaT();
   const DoubleTab& get_bij() const;
   const DoubleTab& get_bij_NL() const;
+  const DoubleTab& get_RST_NL() const;
   const DoubleTab& get_g1() const ;
   inline bool get_Nisizima() const ;
   inline void only_g1( bool val );
@@ -106,6 +107,7 @@ protected:
   DoubleTab g10_;
   DoubleTab bij_;
   DoubleTab bij_NL_;
+  DoubleTab RST_NL_;
   DoubleTab KEps_true_;
 
   DoubleTab lambda_1_etoile_;
